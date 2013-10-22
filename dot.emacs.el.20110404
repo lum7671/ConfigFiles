@@ -1,0 +1,2317 @@
+;;
+;; My own setting
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;; 메인 설정 ;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; (setq font-lock-support-mode 'lazy-lock-mode)
+
+(setq load-path (nconc '("~/.emacs") load-path))	;; 개인 lisp 패키지가 위치 할 load-path 설정
+(setq load-path (nconc '("~/.emacs.d") load-path))	;; 개인 lisp 패키지가 위치 할 load-path 설정
+
+;; ================================================================================
+;; 기본 색 지정
+;; ================================================================================
+(set-foreground-color "wheat")
+(set-background-color "DarkSlateGray")
+
+;; ================================================================================
+;; 영역 색 지정
+;; ================================================================================
+(set-face-foreground 'region "white")
+(set-face-background 'region "cadetblue")
+
+
+
+;;  (setq bdf-directory-list
+;; 	   '("~/.emacs.d/fonts/english-sun" 
+;; 		 "~/.emacs.d/fonts/korean-sun"))
+
+
+;; (create-fontset-from-fontset-spec
+;;  "-*-gothic-normal-r-*-*-12-*-*-*-c-*-fontset-most,
+;;       latin-iso8859-2:-*-gothic-normal-r-*-*-12-*-*-*-c-*-iso8859-2,
+;;       latin-iso8859-3:-*-gothic-normal-r-*-*-12-*-*-*-c-*-iso8859-3,
+;;       latin-iso8859-4:-*-gothic-normal-r-*-*-12-*-*-*-c-*-iso8859-4,
+;;       cyrillic-iso8859-5:-*-gothic-normal-r-*-*-12-*-*-*-c-*-iso8859-5,
+;;       greek-iso8859-7:-*-gothic-normal-r-*-*-12-*-*-*-c-*-iso8859-7,
+;;       latin-iso8859-9:-*-gothicng-normal-r-*-*-12-*-*-*-c-*-iso8859-9,
+;;       japanese-jisx0208:-*-MS Gothic-normal-r-*-*-12-*-*-*-c-*-jisx0208-sjis,
+;;       katakana-jisx0201:-*-MS Gothic-normal-r-*-*-12-*-*-*-c-*-jisx0208-sjis,
+;;       latin-jisx0201:-*-MS Gothic-normal-r-*-*-12-*-*-*-c-*-jisx0208-sjis,
+;;       japanese-jisx0208-1978:-*-MS Gothic-normal-r-*-*-12-*-*-*-c-*-jisx0208-sjis,
+;;       korean-ksc5601:-*-roundgothic-normal-r-*-*-12-*-*-*-c-*-ksc5601.1987-*,
+;;       chinese-gb2312:-*-MS Song-normal-r-*-*-12-*-*-*-c-*-gb2312-*,
+;;       chinese-big5-1:-*-MingLiU-normal-r-*-*-12-*-*-*-c-*-big5-*,
+;;       chinese-big5-2:-*-MingLiU-normal-r-*-*-12-*-*-*-c-*-big5-*" t)
+
+
+;; (require 'cvs-mode)
+
+(require 'sudo-save)
+
+(defun sudo-before-save-hook ()
+  (set (make-local-variable 'sudo:file) (buffer-file-name))
+  (when sudo:file
+    (unless(file-writable-p sudo:file)
+      (set (make-local-variable 'sudo:old-owner-uid) (nth 2 (file-attributes sudo:file)))
+      (when (numberp sudo:old-owner-uid)
+		(unless (= (user-uid) sudo:old-owner-uid)
+		  (when (y-or-n-p
+				 (format "File %s is owned by %s, save it with sudo? "
+						 (file-name-nondirectory sudo:file)
+						 (user-login-name sudo:old-owner-uid)))
+			(sudo-chown-file (int-to-string (user-uid)) (sudo-quoting sudo:file))
+			(add-hook 'after-save-hook
+					  (lambda ()
+						(sudo-chown-file (int-to-string sudo:old-owner-uid)
+										 (sudo-quoting sudo:file))
+						(if sudo-clear-password-always
+							(sudo-kill-password-timeout)))
+					  nil   ;; not append
+					  t	    ;; buffer local hook
+					  )))))))
+
+
+(add-hook 'before-save-hook 'sudo-before-save-hook)
+
+
+(require 'ipython)
+(setq py-python-command-args '( "--colors" "Linux"))
+
+(require 'python-mode)
+
+(require 'pymacs)
+(pymacs-load "ropemacs" "rope-")
+
+;; (defadvice py-execute-buffer (around python-keep-focus activate)
+;;   "Thie advice to make focus python source code after execute command `py-execute-buffer'."
+;;   (let ((remember-window (selected-window))
+;;         (remember-point (point)))
+;;     ad-do-it
+;;     (select-window remember-window)
+;;     (goto-char remember-point)))
+
+;; (defun rgr/python-execute()
+;;   (interactive)
+;;   (if mark-active
+;;       (py-execute-string (buffer-substring-no-properties (region-beginning) (region-end)))
+;;     (py-execute-buffer)))
+
+;; (global-set-key (kbd "C-c C-e") 'rgr/python-execute)
+
+(add-hook 'python-mode-hook
+          '(lambda () (eldoc-mode 1)) t)
+
+(provide 'python-programming)
+
+(require 'cmake-mode)
+(setq auto-mode-alist
+	  (append '(("CMakeLists\\.txt\\'" . cmake-mode)
+				("\\.cmake\\'" . cmake-mode))
+			  auto-mode-alist))
+
+(require 'xcscope)
+(setq cscope-do-not-update-database t)
+
+
+(require 'hangul)
+(set-input-method "korean-hangul3f") ;; if you want 3 beolsik final...
+
+;; cc-mode
+(require 'cc-mode)
+;; automatic indent on return in cc-mode
+; (define-key c-mode-base-map [RET] 'newline-and-indent)
+
+;; syntax-highlighting for Qt
+;; (based on work by Arndt Gulbrandsen, Troll Tech)
+(defun jk/c-mode-common-hook ()
+  "Set up c-mode and related modes.
+ 
+ Includes support for Qt code (signal, slots and alikes)."
+ 
+;; base-style
+(c-set-style "stroustrup")
+;; set auto cr mode
+(c-toggle-auto-hungry-state 1)
+ 
+;; qt keywords and stuff ...
+;; set up indenting correctly for new qt kewords
+(setq c-protection-key (concat "\\<\\(public\\|public slot\\|protected"
+								 "\\|protected slot\\|private\\|private slot"
+								 "\\)\\>")
+		c-C++-access-key (concat "\\<\\(signals\\|public\\|protected\\|private"
+								 "\\|public slots\\|protected slots\\|private slots"
+								 "\\)\\>[ \t]*:"))
+  (progn
+	;; modify the colour of slots to match public, private, etc ...
+	(font-lock-add-keywords 'c++-mode
+							'(("\\<\\(slots\\|signals\\)\\>" . font-lock-type-face)))
+	;; make new font for rest of qt keywords
+	(make-face 'qt-keywords-face)
+	(set-face-foreground 'qt-keywords-face "Yellow")
+	;; qt keywords
+	(font-lock-add-keywords 'c++-mode
+							'(("\\<Q_OBJECT\\>" . 'qt-keywords-face)))
+	(font-lock-add-keywords 'c++-mode
+							'(("\\<SIGNAL\\|SLOT\\>" . 'qt-keywords-face)))
+	(font-lock-add-keywords 'c++-mode
+							'(("\\<Q[A-Z][A-Za-z]*" . 'qt-keywords-face)))
+	))
+(add-hook 'c-mode-common-hook 'jk/c-mode-common-hook)
+
+
+;; Other things I like are, for example,
+
+;; cc-mode
+(require 'cc-mode)
+ 
+;; automatic indent on return in cc-mode
+(define-key c-mode-base-map "\r" 'newline-and-indent)
+ 
+;; Do not check for old-style (K&R) function declarations;
+;; this speeds up indenting a lot.
+; (setq c-recognize-knr-p nil)
+ 
+;; Switch fromm *.<impl> to *.<head> and vice versa
+(defun switch-cc-to-h ()
+  (interactive)
+  (when (string-match "^\\(.*\\)\\.\\([^.]*\\)$" buffer-file-name)
+	(let ((name (match-string 1 buffer-file-name))
+		  (suffix (match-string 2 buffer-file-name)))
+	  (cond ((string-match suffix "c\\|cc\\|C\\|cpp")
+			 (cond ((file-exists-p (concat name ".h"))
+					(find-file (concat name ".h"))
+					)
+				   ((file-exists-p (concat name ".hh"))
+					(find-file (concat name ".hh"))
+					)
+				   ))
+			((string-match suffix "h\\|hh")
+			 (cond ((file-exists-p (concat name ".cc"))
+					(find-file (concat name ".cc"))
+					)
+				   ((file-exists-p (concat name ".C"))
+					(find-file (concat name ".C"))
+					)
+				   ((file-exists-p (concat name ".cpp"))
+					(find-file (concat name ".cpp"))
+					)
+				   ((file-exists-p (concat name ".c"))
+					(find-file (concat name ".c"))
+					)))))))
+
+; (require 'etheme) ;; Emacs Theme
+
+(require 'php-mode)	 					;; php-mode 패키지를 인스톨 했을 경우 필요
+(require 'generic-x)
+(require 'font-lock)
+(require 'psvn)
+(require 'sql)
+(defalias 'sql-get-login 'ignore)
+
+;; ; RubyOnRails 
+;; (require 'ruby-mode)
+;; ; (require 'rubydb3x)
+;; (require 'inf-ruby)
+;; ; (require 'ruby-electric)
+;; ; (setq autu-mode-alist (cons '("\.rb$" . ruby-mode) auto-mode-alist))
+;; (require 'mmm-mode)	;; mmm-mode 패키지를 인스톨 했을 경우 필요
+;; (require 'mmm-auto)
+;; (setq mmm-global-mode 'maybe)
+;; (setq mmm-submode-decoration-level 2)
+;; (set-face-background 'mmm-output-submode-face  "LightGrey")
+;; (set-face-background 'mmm-code-submode-face    "MediumSlateBlue")
+;; (set-face-background 'mmm-comment-submode-face "DarkOliveGreen")
+;; (mmm-add-classes
+;;  '((erb-code
+;;     :submode ruby-mode
+;;     :match-face (("<%#" . mmm-comment-submode-face)
+;;                  ("<%=" . mmm-output-submode-face)
+;;                  ("<%"  . mmm-code-submode-face))
+;;     :front "<%[#=]?" 
+;;     :back "-?%>" 
+;;     :insert ((?% erb-code       nil @ "<%"  @ " " _ " " @ "%>" @)
+;;              (?# erb-comment    nil @ "<%#" @ " " _ " " @ "%>" @)
+;;              (?= erb-expression nil @ "<%=" @ " " _ " " @ "%>" @))
+;;     )))
+
+; html mode
+(add-hook 'html-mode-hook
+          (lambda ()
+            (setq mmm-classes '(erb-code))
+			(setq indent-line-function 'indent-relative)
+			(mmm-mode-on)))
+(add-to-list 'auto-mode-alist '("\\.rhtml$" . html-mode))
+; It is said that this sometimes makes it so that the syntax highlighting doesn?t update enough, so for this you might want to bind so:
+(global-set-key [f8] 'mmm-parse-buffer)
+
+; #2
+;(require 'find-recursive)
+;(defun try-complete-abbrev (old)
+;  (if (expand-abbrev) t nil))
+;
+;(setq hippie-expand-try-functions-list
+;	  '(try-complete-abbrev
+;		try-complete-file-name
+;		try-expand-dabbrev))
+
+;; ; -----------------------
+;; (require 'rails)
+;; (setq x-select-enable-clipboard t)
+;; (setq interprogram-paste-function 'x-cut-buffer-or-selection-value)
+;; (add-to-list 'load-path
+;;              "/opt/emacs")
+;; 
+;; (require 'cedet)
+;; 
+;; ;; Enabling various SEMANTIC minor modes.  See semantic/INSTALL for more ideas.
+;; ;; Select one of the following
+;; (semantic-load-enable-code-helpers)
+;; ;; (semantic-load-enable-guady-code-helpers)
+;; ;; (semantic-load-enable-excessive-code-helpers)
+;; 
+;; ;; Enable this if you develop in semantic, or develop grammars
+;; ;; (semantic-load-enable-semantic-debugging-helpers)
+;; 
+;; (require 'ecb-autoloads)
+;; 
+;; (autoload 'ruby-mode "ruby-mode" "Ruby editing mode." t)
+;; (setq auto-mode-alist  (cons '("\\.rb$" . ruby-mode) auto-mode-alist))
+;; (setq auto-mode-alist  (cons '("\\.rhtml$" . html-mode) auto-mode-alist))
+;; 
+;; ; (modify-coding-system-alist 'file "\\.rb$" 'utf-8)
+;; ; (modify-coding-system-alist 'file "\\.rhtml$" 'utf-8)
+;; 
+;; (require 'snippet)
+;; (require 'rails)
+;; 
+;; (defun try-complete-abbrev (old)
+;;   (if (expand-abbrev) t nil))
+;; 
+;; (setq hippie-expand-try-functions-list
+;;       '(try-complete-abbrev
+;; 		try-complete-file-name
+;; 		try-expand-dabbrev))
+;; 
+;; (add-hook 'ruby-mode-hook
+;;           (lambda()
+;;             (add-hook 'local-write-file-hooks
+;;                       '(lambda()
+;; 						(save-excursion
+;; 						  (untabify (point-min) (point-max))
+;; 						  (delete-trailing-whitespace)
+;; 						  )))
+;;             (set (make-local-variable 'indent-tabs-mode) 'nil)
+;;             (set (make-local-variable 'tab-width) 2)
+;;             (imenu-add-to-menubar "IMENU")
+;;             (require 'ruby-electric)
+;;             (ruby-electric-mode t)
+;;             ))
+;; ; -----------------------
+
+; RubyOnRails
+
+(load-library "hideshow")
+
+(autoload 'awk-mode "cc-mode" nil t)
+
+;; Doxygen mode
+(add-hook 'c-mode-common-hook 'doxymacs-mode)
+(defun my-doxymacs-font-lock-hook ()
+  (if (or (eq major-mode 'c-mode) (eq major-mode 'c++-mode))
+	  (doxymacs-font-lock)))
+(add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
+(require 'doxymacs)
+
+;; vim 의 "%"키 처럼 
+(define-key global-map (kbd "%") 'match-paren)
+(defun match-paren ()
+  "% command of vi"
+  (interactive)
+  (let ((char (char-after (point))))
+	(cond ((memq char '(?\( ?\{ ?\[))
+		   (forward-sexp 1)
+		   (backward-char 1))
+		  ((memq char '(?\) ?\} ?\]))
+		   (forward-char 1)
+		   (backward-sexp 1))
+		  (t (call-interactively 'self-insert-command))))) 
+
+;(add-to-list 'vc-handled-backends 'SVN)
+
+;(require 'gnuserv)
+;(gnuserv-start)
+
+;; mailcryt 패키지 인스톨했을 경우 필요.
+;; mailcrypt 패키지 최초 설정에서 전체 사용자에게 mailcrypt 패키지를 적용시키지 않았을 경우 필요
+;; dpkg-reconfigure 로 재설정 가능하다.
+;;(require 'mailcrypt-init) 
+
+;; ================================================================================
+;; person info
+;; ================================================================================
+(setq user-full-name "Doo-Hyun Jang")
+(setq user-mail-address "dh.jang@gmail.com")
+
+;; ================================================================================
+;; 폰트 설정
+;; ================================================================================
+; (set-default-font "-*-*-medium-r-normal-*-14-*-*-*-*-*-fontset-sun") ;; 이맥스21에서 디폴트 폰트셋 설정 방법
+; (setq load-path (nconc '("~/emacs/python-mode-1.0alpha") load-path)) ;; load-path 설정
+; (setq load-path (cons "/home/dhjang/emacs" load-path))
+
+;; ================================================================================
+;; ;;indent with just spaces 들여쓰기 설정
+;; ================================================================================
+;;(setq-default indent-tabs-mode nil)   ;; nil 이 아니면 들여쓰기 명령이 탭문자를 입력한다.(버퍼지역변수)
+(setq-default indent-tabs-mode t)		;; nil 이 아니면 들여쓰기 명령이 탭문자를 입력한다.(버퍼지역변수)
+(setq tab-stop-list '(4 8 12 16 20 24 28 32 26 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96 100 104 108 112 116 120))
+(setq default-tab-width 4)              ;; 탭간 간격(버퍼지역변수)
+;; automatically indenting yanked text if in programming-modes
+;; 붙여넣기 하면서 자동 들여쓰기 함수
+(defadvice yank (after indent-region activate)
+  (if (member major-mode '(emacs-lisp-mode
+                           c-mode c++-mode
+                           tcl-mode sql-mode
+                           perl-mode cperl-mode
+                           java-mode jde-mode
+                           LaTeX-mode TeX-mode))
+	  (let ((transient-mark-mode nil))
+		(indent-region (region-beginning) (region-end) nil))))
+
+;; ================================================================================
+;; font lock 및 컬러링 설정
+;; ================================================================================
+(global-font-lock-mode 1)				;; 신택스 하이라이트 기능
+(setq font-lock-maximum-decoration t)   ;; 하이라이트 장식을 최대한으로 틀리게 함
+;; (setq font-lock-support-mode 'lazy-lock-mode)
+(setq lisp-font-lock-keywords 'lisp-font-lock-keywords-2)
+;; (setq font-lock-face-attributes
+;;       ;; FACE FG BG bold italic underline
+;;       '((font-lock-string-face "green3")
+;;         ;(font-lock-emphasized-face "black" nil t nil nil)
+;;         ;(font-lock-other-emphasized-face "red" nil nil nil nil)
+;;         ;(font-lock-other-type-face "darkgreen" nil nil nil nil)
+;;         ;(font-lock-keyword-face "yellow3")
+;;         ;(font-lock-function-name-face "blue4")
+;;         ;(font-lock-variable-name-face "red")
+;;         (font-lock-type-face "violet")
+;;         (font-lock-constant-face "CadetBlue")))
+
+;; ================================================================================
+;; 하이라이트
+;; ================================================================================
+;; 하이라이트-01
+;; 커서가 있는 라인을 하이라이팅 / X 윈도가 아닐 경우에는 더 불편하다.
+; NNNNNN (highlight-current-line-on t)
+; (highlight-current-line-set-bg-color "SlateGrey")
+; (highlight-current-line-set-fg-color "none")
+; (highlight-current-line-set-bg-color "#254437")
+; (highlight-current-line-set-fg-color "none")
+
+;; 
+;; emacs wiki
+;; transient-mark-mode, delete-selection-mode, pc-selection-mode
+(setq transient-mark-mode t) ; 범위 지정시 이 범위가 다른 지역과 구분되게 하기 위해
+;; Delete-selection-mode, pc-selection-mode / 별 필요성을 느끼지 못하겠다.
+;; Delete-Selection-Mode and Transient-Mark-Mode are also enabled.
+;; Transient-Mark-mode is enabled in Delete-Selection-mode. Also, Pc-Selection-Mode includes Delete-Selection-mode.
+;;(pc-selection-mode)					; 일반 PC 컴타의 키바인딩을 인식시켜줌
+										; This allows you to use the `S-<left>' and `S-<right>' to extend or shrink the region.
+										; Ditto for `C-S-<left>' and `C-S-<right>' as well as lots of other combinations well known
+										; from the Windows 3.11 world. My favorite is `S-<insert>', `C-<insert>', and `S-<delete>'
+										; to paste, copy, and cut the region.
+;;(delete-selection-mode 1)				; Delete Selection mode lets you treat an Emacs region like a Windows selection:
+										; You can replace the region just by typing text, and delete it just by typing the Backspace key (DEL).
+
+;; 
+;; highlight-completion / 미니 버퍼에서 사용되는 자동 완성 기능에 대한 하이라이팅
+;; 'Highlight completion' is a variant on completion in Emacs.
+;; Normally if you're typing a file name into the minibuffer in Emacs, when you hit the TAB key,
+;; Emacs completes what you already have as far as possible.
+;; This package augments this by displaying the text that Emacs would add if you hit the TAB key, highlighted.
+;; (The idea is that, if you're not looking at the screen, you won't know that anything different is happening,
+;; but if you are looking, you get extra information.)
+;;
+;; http://www.math.washington.edu/~palmieri/Emacs/hlc.html 참조
+;;--------------------------------------------------------------------------------
+;; This package modified how Emacs performs completions.
+;; Ordinarily, if you are typing a file name into the minibuffer (after hitting C-x C-f, say),
+;; if you type a few letters and hit the TAB key, then Emacs completes as far as possible.
+;; For example, suppose a directory contains only these files:
+;; 
+;; filbert   filibuster   frank   grunge.tex
+;;     
+;; If you type g followed by TAB, then runge.tex is inserted. If you hit fi then TAB, an l is inserted.
+;; If you hit f then TAB, there is no unique continuation of the file name,
+;; so Emacs opens up a new window displaying the list of possible completions.
+;; 
+;; That's the old system. This package provides a variant: if you type g, then runge.tex is automatically inserted as highlighted text,
+;; to indicate that it's only provisional. The point remains immediately after the g. If you hit TAB, the point jumps to the end,
+;; and the added text is no longer highlighted.
+;; (So if you weren't looking at the screen, you wouldn't know that anything different had happened.) If after hitting g, you typed a
+;; (because you wanted to find a new file gaptooth.el) the highlighted text would disappear. The effects of various keys:
+;;
+;; TAB: jump forward to the end of the highlighted text. If no text is highlighted, open up a window showing possible completions.
+;; SPC: jump forward a word (so g followed by SPC would yield grunge.tex, with the point after the ., and with tex highlighted).
+;;		If no text is highlighted, open up a window showing possible completions.
+;; ?: open up a window showing possible completions.
+;; RET: open the named file (so g followed by RET would open grunge.tex).
+;; C-g: stop this modified completion process and exit the minibuffer.
+;; C-c: delete the highlighted text and stop this modified completion process.
+;; character: if consistent with completion, unhighlight it and move the point forward. if inconsistent,
+;;		insert the character and delete the highlighted text, stopping this completion process.
+;; --------------------------------------------------------------------------------
+;; How to use:
+;; 1. Put the file highlight-completion.el in your load-path.
+;; 2. Put (require 'highlight-completion) in your .emacs file (or your .xemacs/init.el file).
+;; 3. Turn on highlight completion by either
+;; 
+;;		M-x highlight-completion-mode
+;; 
+;;	or customizing variables:
+;;
+;;		M-x customize-group highlight-completion
+;;	
+;;	Then turn on "Highlight completion mode". You may want to modify some of the entries in "Highlight completion list".
+;; 4. You can also run the functions
+;; 
+;;		hc-completing-insert-file-name				to complete file names
+;;		hc-completing-insert-lisp-function          lisp functions
+;;		hc-completing-insert-lisp-variable          lisp variables
+;;		hc-completing-insert-kill                   contents of kill ring
+;;		hc-completing-insert-buffer contents        buffer contents
+;;		hc-ispell-complete-word                     words from a dictionary, using ispell
+;; 
+;;		These functions can be used anywhere, not just in the minibuffer. 
+; (highlight-completion-mode 1) 
+
+;; 
+;; 컬러 설정(범위지정시 범위가 다른 지역과 구분되게 설정 하였을 경우) / highlight-completion 도 적용받음
+(set-face-foreground 'region "white")   
+;;(set-face-background 'region "#254437")
+(set-face-background 'region "cadetblue")
+
+;; 
+;; emacs wiki
+;; emacs 종료시 변경된 버퍼 하이라이트
+(highlight-changes-mode 1) 
+
+;; ================================================================================
+;; mode line hacking. 모드라인 컬러링및 기타 display 설정
+;; ================================================================================
+(setq-default mode-line-format
+              '(""
+                (current-input-method	;; input-method표시 선택이 않됐을 경우에는 현재 위치를 퍼센트로 표시
+                 (3 . current-input-method-title)
+                 (-3 . "%p"))
+                "%Z"                    ;; 키보드 코딩 시스템 표시
+                mode-line-modified
+                mode-line-buffer-identification
+                " %[(" mode-name mode-line-process minor-mode-alist "%n" ")%]" ;; 주모드및 보조 모드 리커시브 편집표시
+                (which-func-mode ("" which-func-format))
+                ("  " "L" "%l" "." "C" "%c") ;; 라인 및 컬럼 표시
+                global-mode-string      ;; display-time 표시
+                "  "
+                default-directory))
+(setq-default mode-line-modified '("%1*%1+"))
+(setq-default mode-line-frame-identification '("%F"))
+;; 밑에 3개 중에서 사용자 취향대로 선택해서 사용하기 바란다. 단 3개를 동시에 사용하면 안된다.
+(setq-default mode-line-buffer-identification '("%b:<%p>")) ;파일을 열었을 경우 뒤에 현 파일의 위치를 퍼센트로 표시
+;;(setq-default mode-line-buffer-identification '("%b:%l.%c<%p>"))  ;라인과 컬럼을 같이 표시
+;;(setq-default mode-line-buffer-identification '("%b"))    ;파일 이름만을 표시
+;display-time에 대한 표시설정. 주석처리되 부분은 메일이 왔을 경우 메일 왔음을 알린다(하지만 귀찮기만 하다)
+(setq display-time-string-forms         
+      '(" ["24-hours ":" minutes am-pm" " monthname" " day "]"))
+;;        (if mail "  <You got mail!!>" " " ) ;메일이 왔을 경우 모드라인에 표시되는 방법 설정
+;;        (if mail "" year) (if mail "" "/") (if mail "" month) (if mail "" "/") (if mail "" day)))
+
+;;모드라인에 현재 커서의 줄과 칼럼위치 시간 표시('mode line hacking'때문에 필요 없음)
+(setq column-number-mode t)             ;;컬럼수를 모드라인에 표시할 경우 에디팅 속도가 느려진다
+;;(setq line-number-mode t)
+;;(setq display-time-day-and-date t)
+(display-time)
+
+;; mode-line color
+(when enable-multibyte-characters
+  (set-face-foreground 'modeline "blue")
+  (set-face-background 'modeline "khaki"))
+(unless enable-multibyte-characters
+  (set-face-foreground 'modeline "Red")
+  (set-face-background 'modeline "Yellow"))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; 패키지/모드에 관한 설정 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;이맥스를 처음 실행시켰을때 디폴트로 text모드로 작동하게 함
+;(setq default-major-mode 'text-mode)    
+;(setq initial-major-mode 'text-mode)
+
+;;text-mode
+(add-hook 'text-mode-hook
+          '(lambda ()
+            (turn-on-font-lock)  	  
+            (modify-syntax-entry ?\" "\"")
+            (modify-syntax-entry ?< "(>")
+            (modify-syntax-entry ?> ")<")))
+
+;; ================================================================================
+;; speedbar 패키지메뉴로 등록
+;; ================================================================================
+(define-key-after (lookup-key global-map [menu-bar tools])
+    [speedbar] '("Speedbar" . speedbar-frame-mode) [calendar])
+
+;; ================================================================================
+;; dired-mode
+;; ================================================================================
+;;중요 파일들은 표시가 안됨
+;;초보일 경우 이 주석들을 제거하고 dired 모드를 사용하는것이 좋다.
+;;어느정도 리눅스에 익숙한 사용자라면 아래 내용을 주석 처리하고 그냥 사용할것.
+(add-hook 'dired-load-hook
+          '(lambda ()
+            (load-library "dired-x")
+			(setq dired-omit-files-p t)	; Enable toggling of uninteresting files.
+             (setq dired-omit-files
+             "^RCS$\\|^CVS$\\|,v$\\|^\\.?#\\|^\\.$\\|^\\.\\.$")
+			;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+			(fset 'yes-or-no-p 'y-or-n-p) ;; disable some novice confirmation features.
+			(setq dired-recursive-deletes 'top)	;; dired 모드에서 디렉토리를 지울때 행동을 규정
+			(setq dired-backup-overwrite 'always)
+			(setq dired-listing-switches "-alh") ;; dired-mode에서 전달되는 인수
+			;; always : 비어있지 않은 디렉토리를 지울때 물어보지 않고 바로 실행
+			;; top : 비어있지 않은 디렉토리를 지울때 최상위 디렉토리에 대해서만 물어봄, 서브 디렉토리에 대해서는 물어보지 않음
+			(setq dired-no-confirm
+			 '(byte-compile chgrp chmod chown compress copy delete hardlink load
+			   move print shell symlink uncompress))
+			;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+            (push ".cma" dired-omit-extensions)
+            (push ".cmi" dired-omit-extensions)
+            (push ".cmo" dired-omit-extensions)
+            (push ".cmx" dired-omit-extensions)))
+
+
+;; dired 모드에서 한글을 제대로 보기위해
+;;(defun dired-load-hook-fn ()
+;;  (setq dired-move-to-filename-regexp
+;;      (concat "\\("
+;;                dired-move-to-filename-regexp
+;;                ;;"\\|"
+;;
+;;                ;;"[12][90][0-9][0-9]년[ ][1 ][0-9]월[ ][ 1-3][0-9]일[ ]"
+;;
+;;                "\\|"
+;;
+;;                "1?[0-9]월[ ]+[1-3]?[0-9]일?[ ]+[0-9:]+[ ]"
+;;                "\\)")))
+
+;; ================================================================================
+;; thumb모드. 이미지를 Thumbnail로 보여준다. 시스템 로드 엄청 잡아먹는다.(다운받은 Lisp)
+;; ================================================================================
+;;(autoload 'thumbs "thumbs" "Preview images in a directory." t)
+
+;; ================================================================================
+;; ange-ftp
+;; ================================================================================
+;; 자주 방문하는 사이트는 아래처럼 주소, 아이디, 패스를 등록하여 로그인 과정을 생략할 수 있다
+;; (ange-ftpet-passwd "<host>" "<id>" "<pass>")
+;; (ange-ftpet-passwd "<host>" "<id>" "<pass>")
+(setq ange-ftp-generate-anonymous-password "dh.jang@gmail.com")
+
+;; ange-ftp에서 패시브 모드 사용을 위해서
+(add-hook 'ange-ftp-process-startup-hook 'ange-ftp-passive-mode)
+(defun ange-ftp-passive-mode ()
+  (send-string proc "passive\n"))
+
+;; ================================================================================
+;; tramp 패키지 설정
+;; ================================================================================
+(require 'tramp)
+
+(setq tramp-chunksize 500)
+(setq tramp-default-method "sm")
+(setq find-file-visit-truename nil)
+(setq password-cache-expiry nil)
+
+;; (setq tramp-default-method "scp")		; external methods ssh with scp
+(setq tramp-default-method "ssh")    
+
+(setq find-file-visit-truename nil)
+;; It makes Emacs beep after reading from or writing to the remote host.
+(defadvice tramp-handle-write-region
+	(after tramp-write-beep-advice activate)
+  " make tramp beep after writing a file."
+  (interactive)
+  (beep))
+(defadvice tramp-handle-do-copy-or-rename-file
+	(after tramp-copy-beep-advice activate)
+  " make tramp beep after copying a file."
+  (interactive)
+  (beep))
+(defadvice tramp-handle-insert-file-contents
+	(after tramp-copy-beep-advice activate)
+  " make tramp beep after copying a file."
+  (interactive)
+  (beep))
+
+;; ================================================================================
+;; mailcrypt 패키지 설정
+;; ================================================================================
+; (mc-setversion "gpg") ;;pgp대신 gpg사용을 위해 디폴트는 pgp
+; (autoload 'mc-install-write-mode "mailcrypt" nil t)
+; (autoload 'mc-install-read-mode "mailcrypt" nil t)
+; (add-hook 'mail-mode-hook 'mc-install-write-mode)
+; ;;(add-hook 'gnus-summary-mode-hook 'mc-install-read-mode)
+; ;;(add-hook 'message-mode-hook 'mc-install-write-mode)
+; ;;(add-hook 'news-reply-mode-hook 'mc-install-write-mode)
+; ;; 모든 메세지에 자동으로 sign을 보내기 위해 사인한 메세지를 보낼지 물어봄
+; (setq mc-gpg-user-id "pcharley") ;; 계정 id와 gpg 서명 id가 다를 경우에 사용할 서명 id를 적어줍니다.
+; (setq mc-gpg-comment 
+; 	  (format "Mailcrypt %s and GnuPG" mc-version))
+; (add-hook 'message-send-hook 'my-sign-message)
+; (defun my-sign-message ()
+;   (load-library "mc-toplev")
+;   (interactive)
+;   (if (yes-or-no-p "Sign message? ")
+;       (my-sign-message)))
+; ;; 서명된 메세지의 확인은 `mc-verify' (C-c / v)로 합니다
+
+;; ================================================================================
+;; mail &message setting
+;; ================================================================================
+(setq rmail-mail-new-frame t) ;메일 메시지를 발송하기 위한 새로운 프레임을 생성
+;;(setq user-mail-address "pcharley@orgio.net") ;이메일 주소
+(setq mail-archive-file-name "~/Mail/outgoing") ;발송메일을 저장하는파일명
+(setq mail-yank-prefix ">")		   ;메일 답장할때 원본내용 앞에 삽입할 문자
+
+(setq message-user-organization "Unix Network World")
+(setq message-default-headers
+      (concat "Mime-Version: 1.0\n"
+              "Content-Type: text/plain; charset=utf-8\n" ;
+              "Content-Transfer-Encoding: 8bit\n"
+              "Reply-to: pcharley@orgio.net\n"
+              "Gcc: nnfolder+archive:mail."
+              (format-time-string "%Y-%m") "\n"
+              ))
+
+;; ================================================================================
+;; bm.el 설정
+;; ================================================================================
+;; (require 'bm)
+;; or
+(autoload 'bm-toggle   "bm" "Toggle bookmark in current buffer." t)
+(autoload 'bm-next     "bm" "Goto bookmark."                     t)
+(autoload 'bm-previous "bm" "Goto previous bookmark."            t)
+;;; Configuration:
+;;
+;;   To make it easier to use, assign the commands to some keys.
+;;
+;;   M$ Visual Studio key setup.
+(global-set-key (kbd "<C-f2>") 'bm-toggle)
+(global-set-key (kbd "<f2>")   'bm-next)
+(global-set-key (kbd "<S-f2>") 'bm-previous)
+
+;; ================================================================================
+;; naver 영한사전 by 정재윤
+;; ================================================================================
+(require 'cl)
+(defun ndic (word)
+  "simple naver dictionary browser"
+  (interactive
+   (list (let ((wd (current-word)))
+           (read-string (format "dict naver (default '%s'): " wd)))))
+  (let ((url
+         (format "http://endic.naver.com/search.naver?where=dic&query=%s"
+                 (qs-url-encode word))))
+    (with-output-to-temp-buffer "*ndic*"
+      (set-buffer "*ndic*")
+      (setq buffer-read-only nil)
+      (erase-buffer)
+      (call-process "wget" nil (current-buffer) nil "-q" "-O-" url)
+      (setf (point) (point-min))
+      (when (looking-at "<META HTTP-EQUIV=")
+        (progn (re-search-forward "url=")
+               (delete-region (point-min) (point))
+               (re-search-forward "\"")
+               (setq url (format "http://endic.naver.com%s"
+                                 (buffer-substring (point-min) (1- (point)))))
+               (erase-buffer)
+               (call-process "wget" nil (current-buffer) nil "-q" "-O-" url)
+               (setf (point) (point-min))))
+      (when (search-forward "<!-- end :" nil t)
+        (beginning-of-line 2)
+        (delete-region (point-min) (point)))
+      (when (search-forward "<!-- start :" nil t)
+        (beginning-of-line 0)
+        (delete-region (point) (point-max)))
+      (setf (point) (point-min))
+      (while (re-search-forward "<[^>]+>" nil t) (replace-match ""))
+      (setf (point) (point-min))
+      (while (re-search-forward "&[^;]+;" nil t) (replace-match ""))
+      (setf (point) (point-min))
+      (when (re-search-forward (format "^%s" word) nil t)
+        (beginning-of-line 0)
+        (delete-region (point-min) (point)))
+      (setf (point) (point-min))
+      (insert (format "definition of %s: %s\n" word url))
+      (pop-to-buffer "*ndic*"))))
+
+(defun qs-url-encode (str &optional coding)
+  "urlencode the string"
+  (loop for c across (encode-coding-string str (or coding 'utf-8))
+        concat (cond ((eq c ?\n) "%0D%0A")
+                     ((string-match "[-a-zA-Z0-9_:/.]" (char-to-string c))
+                      (char-to-string c))
+                     ((char-equal c ?\x20) "+")
+                     (t (format "%%%02x" c)))))
+
+;; ================================================================================
+;; MSIE에서 web accessories를 깔고 난 후에 주소창에서 쓰던 기능을 emacs에서 구현
+;; by 정재윤
+;; ================================================================================
+(require 'ffap)
+(defconst qs-keywords
+  '(
+    a     "http://www.google.com/answers/search?qtype=answered&q=%s"
+    av    "http://www.altavista.com/cgi-bin/query?text=yes&q=%s"
+    bible "http://bible.gospelcom.net/cgi-bin/bible?passage=%s"
+    dict  "http://www.dictionary.com/cgi-bin/dict.pl?term=%s"
+    dmoz  "http://search.dmoz.org/cgi-bin/search?search=%s"
+    e     "http://www.thefreedictionary.com/%s"
+    f     "http://wombat.doc.ic.ac.uk/foldoc/foldoc.cgi?query=%s&action=Search"
+    fm    "http://freshmeat.net/search/?q=%s"
+    g     "http://www.google.com/search?q=%s"
+    gg    "http://www.google.com/search?btnI=1&q=%s"
+    gk    "http://labs.google.com/cgi-bin/keys?q=%s"
+    gl    "http://labs.google.com/glossary?q=%s"
+    gm    "http://www.google.com/microsoft?hq=microsoft&q=%s"
+    gn    "http://groups.google.com/groups?q=%s"
+    imdb  "http://www.imdb.com/Tsearch?%s"
+    isbn  "http://isbn.nu/%s/price"
+    m     "http://planetmath.org/?op=search&term=%s"
+    mskb  "http://cryo.gen.nz/projects/mskb/?q=%s"
+    mw    "http://www.m-w.com/cgi-bin/dictionary?book=Dictionary&va=%s"
+    n     "http://search.naver.com/search.naver?where=nexearch&query=%s"
+    nb    "http://100.naver.com/search.naver?query=%s"
+    nd    "http://dic.naver.com/endic?where=dic&query=%s"
+    ni    "http://kinsearch.naver.com/search.naver?where=allqna&query=%s"
+    r     "http://ragingsearch.altavista.com/cgi-bin/query?q=%s"
+    rc5   "http://stats.distributed.net/rc5-64/psearch.php3?st=%s"
+    rfc   "http://www.faqs.org/rfcs/rfc%s.html"
+    rhyme "http://rhyme.lycos.com/r/rhyme.cgi?Word=%s"
+    s     "http://citeseer.ist.psu.edu/cis?q=%s&submit=Search+Documents&cs=1"
+    t     "http://s.teoma.com/search?q=%s&qcat=1&qsrc=0"
+    thes  "http://www.thesaurus.com/cgi-bin/search?config=roget&words=%s"
+    w     "http://www.wikipedia.org/w/wiki.phtml?search=%s"
+    whats "http://www.netcraft.com/whats/?host=%s"
+    whois "http://www.domainwatch.com/getwho.cgi?dom=%s"
+    wp    "http://www.whitepages.co.nz/cgi-bin/search?loc=AK&key=%s"
+    yd    "http://kr.engdic.yahoo.com/search/engdic?p=%s"
+    yp    "http://www.yellowpages.co.nz/quick/search?lkey=Auckland&key=%s"
+
+    ;; these are later add on -- not from registry
+    fi    "http://www.fact-index.com/search/search.html?search=%s"
+    wi    "http://en.wikipedia.org/wiki/%s"
+    ))
+
+(defun qs-search (url-string)
+  "immitage the search url facility in MSIE w/ web accessories"
+  (interactive "sURL ('?' for help): ")
+  (when (or (null url-string)
+            (string= url-string ""))
+    (setq url-string (ignore-errors (ffap-prompter))))
+  (flet ((browse (url) (browse-url url (or current-prefix-arg t))))
+    (let* ((pos (position ? url-string))
+           (key (intern (substring url-string 0 pos)))
+           (idx (position key qs-keywords)))
+      (if (and pos idx)
+          (let ((buzzword (substring url-string (1+ pos))))
+            (browse (format (nth (1+ idx) qs-keywords)
+							(qs-url-encode buzzword))))
+		  (if (string= url-string "?")
+			  (with-output-to-temp-buffer "*Help*"
+				(princ "Simply type any url ('https?://' is optional) or")
+				(terpri) (terpri)
+				(loop for key in qs-keywords by #'cddr
+					  for url in (cdr qs-keywords) by #'cddr
+					  do (princ (format "  %-10s%s" key url))
+					  do (terpri)))
+			  (or (string-match "^https?://" url-string)
+				  (setq url-string (concat "http://" url-string)))
+			  (browse url-string))))))
+(define-key mode-specific-map "d" 'qs-search)
+;; C-c d를 누르고 "w Poincare Conjecture"를 치시면 포앙카레 컨젝쳐가 뭔지 바로 알 수 있다.
+;; 위에 올린 (require 'cl)하고 qs-url-encode 도 있어야 합니다.
+
+;; by 정재윤
+
+;; ================================================================================
+;; 단순 shell 모드에 대한 환경 지정. eshell 모드 사용을 강력 권장
+;; by 정재윤
+;; ================================================================================
+(add-hook 'shell-mode-hook  'shell-integration-hook)
+(defun shell-integration-hook ()
+  (make-local-variable 'comint-input-sender)
+  (setq comint-input-sender 'shell-integration-sender))
+
+(defun shell-integration-sender (process command)
+  (setq command command)
+  (let* ((program (comint-arguments command 0 0))
+		 (func (intern (format "shell/%s" program))))
+    (if (not (fboundp func))
+		(comint-simple-send process command)
+		(comint-simple-send process (format "# %s" command))
+		(funcall func process command))))
+
+;; shell 모드에서 "vi filename" 하면 filename이 emacs에서 열리고, make를 치면 알아서 compile버퍼로 넘어가서 실행.
+;; by 정재윤
+(defun shell/vi (process command)
+  (find-file (comint-arguments command 1 1) nil))
+
+(defun shell/make (process command)
+  (compile command))
+
+;; 해당하는 명령이 M-p, M-n.
+;; by 정재윤
+(add-hook 'shell-mode-hook  'shell-custom-bindings)
+(defun shell-custom-bindings ()
+  (define-key shell-mode-map (kbd "<up>") (kbd "M-p"))
+  (define-key shell-mode-map (kbd "<down>") (kbd "M-n"))
+  (define-key shell-mode-map (kbd "C-p") (kbd "M-p"))
+  (define-key shell-mode-map (kbd "C-n") (kbd "M-n")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; calender & diary 설정
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; ================================================================================
+;; diary & calendar
+;; ================================================================================
+;; calendar 위도, 경도, 위치
+(setq calendar-latitude [37 34 north])
+(setq calendar-longitude [126 34 east])
+(setq calendar-location-name "Seoul")
+
+;; ================================================================================
+;; calender에서 음력표시(emacs메일리스트에서 참조)
+;; ================================================================================
+
+;;    p o    calendar-print-other-dates
+;;    p m    calendar-print-mayan-date
+;;    p f    calendar-print-french-date
+;;    p i    calendar-print-islamic-date
+;;    p h    calendar-print-hebrew-date
+;;    p a    calendar-print-astro-day-number
+;;    p j    calendar-print-julian-date
+;;    p c    calendar-print-iso-date (includes number of the week!)
+;;    p p    calendar-print-persian-date
+;;    p e    calendar-print-ethiopic-date
+;;    p k    calendar-print-coptic-date
+;;    p C    calendar-print-chinese-date
+;;    p d    calendar-print-day-of-year
+
+(require 'cal-china)
+(defun from-chinese-to-gregorian (date-list)
+  "date-list is '(m d) or '(m d y) in chinese date"
+  (let* ((date (if (= (length date-list) 2)
+                   (append '(12 31)
+                           (cdr (cdr (calendar-current-date))))
+                   (append '(12 31) (cdr (cdr date-list)))))
+         (c-date (calendar-chinese-from-absolute
+                  (calendar-absolute-from-gregorian date)))
+         (cycle (car c-date))
+         (year (car (cdr c-date)))
+         (month (car date-list))
+         (day (car (cdr date-list))))
+    (calendar-gregorian-from-absolute (calendar-absolute-from-chinese
+                                       (list cycle year month day)))))
+
+;;특정 음력일을 변수에 할당하여 선언
+(setq korean-new-year-day (from-chinese-to-gregorian '(1 1)))
+(setq buddha-day (from-chinese-to-gregorian '(4 8)))
+(setq korean-thanksgiving-day (from-chinese-to-gregorian '(8 15)))
+
+(setq other-holidays
+      '((holiday-fixed 1 1 "New Year's Day")									;; 1月1日(신정)
+        (holiday-fixed 1 14 "Diary Day")										;; 1月14日
+        (holiday-fixed (extract-calendar-month korean-new-year-day)				;; 구정
+         (extract-calendar-day korean-new-year-day)
+         "Lunar New Year's Day")
+        (holiday-fixed 2 14 "Valentine's Day")									;; 2月14日
+        (holiday-fixed 3 1 "Anniversary of the Samil Independence Movement")	;; 삼일절
+        (holiday-fixed 3 14 "White Day")										;; 3月14日
+        (holiday-fixed 4 5 "Arbor Day")											;; 식목일
+        (holiday-fixed 4 14 "Black Day")										;; 5月14日
+        (holiday-fixed 5 5 "Children's Day")									;; 어린이날
+        (holiday-fixed 5 14 "Yellow & Rose Day")								;; 5月14日
+        (holiday-fixed (extract-calendar-month buddha-day)						;; 부처님 오신날
+         (extract-calendar-day buddha-day)
+         "Buddha's Day")
+        (holiday-fixed 6 6 "Memorial Day")										;; 현충일
+        (holiday-fixed 6 14 "Kiss Day")											;; 6月14日
+        (holiday-fixed 7 17 "Constitution Day")									;; 제헌절
+        (holiday-fixed 7 14 "Siver Day")										;; 7月14日
+        (holiday-fixed 8 14 "Green Day")										;; 8月14日
+        (holiday-fixed 8 15 "Independence Day of Korea")						;; 광복절
+        (holiday-fixed 9 14 "Music Day & Photo Day")							;; 9月14日
+        (holiday-fixed (extract-calendar-month korean-thanksgiving-day)			;; 추석
+         (extract-calendar-day korean-thanksgiving-day)
+         "Korean Thanksgiving Day(Harvest Moon Day)")
+        (holiday-fixed 10 14 "Red Day(Wine Day)")								;; 10月14日
+        (holiday-fixed 10 3 "Anniversary of Dangun's Accession")				;; 개천절
+        (holiday-fixed 11 14 "Orange Day & Movie Day")							;; 11月14日
+        (holiday-fixed 12 14 "Hug Day & Money Day")								;; 12月14日
+        (holiday-fixed 12 25 "Christmas Day")))									;; 크리스 마스
+(setq local-holidays '((holiday-fixed 4 13 "Assemblyman Election Day")))		;; 임시정부수립기념일
+(setq calendar-holidays (append other-holidays local-holidays))
+
+;; 1월14일 : 다이어리 데이(일년동안 쓸 다이어리를 연인에게 선물하는 날)
+;; 2월14일 : 발렌타인 데이
+;; 3월14일 : 화이트 데이(남자가 좋아하는 여자에게 사탕을 선물하며 자신의 마음을 전하는 날. 서양에는 없고 동양에만 있다.
+;;      발렌타인데이에 사랑을 고백한 여자의 마음을 남자가 받아들일 경우라면 사탕을 선물한다. 연인들에게는 남자가 밸런타인데이에 받은 선물을 답례하는
+;;      날로서 의미를 가진다)
+;; 4월14일 : 블랙 데이(밸런타인데이에 초콜릿을 받지 못한 남자와 화이트데이에 사탕을 받지 못한 여자가 만나 서로 외로움을 달래주는 날. 이날은
+;;      옷을 비롯해 구두, 양말, 액세서리까지 검정색으로 입어야 하고 먹는 것도 자장면을 먹고 카페에 가도 블랙커피를 마신다)
+;; 5월14일 : 옐로우 & 로즈데이(블랙데이까지 연인을 사귀지 못한 사람이 노란옷을 입고 카레를 먹어야 독신을 면한다는 날
+;;      반면 연인이 된 사람들에게는 장미가 만발한 가운데 아름다운 데이트를 하는날)
+;; 6월14일 : 키스데이(로즈데이를 무난히 치러낸 연인들이라면 키스할 만큼 분위기가 무르익었을까..?)
+;; 7월14일 : 실버데이(학교-직장의 선배 또는 어른들께 데이트 비용을 부담하게 하면서 자신의 애인을 선보이는날)
+;; 8월14일 : 그린데이(연인과 함께 무더운 날씨를 피해 산속을 손잡고 걸으며 삼림욕 하는 날. 애인이 없는 사람들은 순한 소주를 마시며 외로움을 달래는 날)
+;; 9월14일 : 뮤직 & 포토데이(나이트클럽등 음악이 있는 곳에서 친구들을 모아놓고 연인을 소개하면서 둘 사이를 공식화하는 날이다. 청명한 가을 하늘 아래서
+;;      연인과 사진을 찍는 날이기도 하다)        
+;; 10월14일 : 레드데이(와인데이)(깊어가는 가을 연인과 함께 분위기 있게 와인을 마시는 날)
+;; 11월14일 : 오렌지 & 무비데이(오렌지쥬스를 마시며 사랑의 상큼함을 느끼는 날. 연인끼리 영화를 보는 날이기도 하다)
+;; 12월14일 : 허그 & 머니데이(연인끼리 껴안는것이 허락되고, 남자는 여자에게 돈을 팍팍쓰며 봉사하는 날이다)
+
+;; ================================================================================
+;; Here is some code to make your calendar and diary display fancier:
+;; ================================================================================
+;; diary & calendar 외관 설정
+(setq view-diary-entries-initially t    ;; calendar가 시작할때 diary의 요약 내용을 보여줌
+      mark-diary-entries-in-calendar t  ;; calendar에 diary에 내용이 있는 날짜를 mark 함
+      number-of-diary-entries 7)        ;; diary의 내용을 7일까지 보여줌
+(add-hook 'diary-display-hook 'fancy-diary-display)
+(add-hook 'today-visible-calendar-hook 'calendar-mark-today)
+
+;; ================================================================================
+;; emacs wiki
+;; diary 내용 요약 페이지에 ==== 를 없애는 설정 / 헷갈린다.
+;; Here is some code to get rid of the ugly equal signs under the date:
+;; ================================================================================
+;;(add-hook 'fancy-diary-display-mode-hook
+;;		  '(lambda ()
+;;			(alt-clean-equal-signs)))
+;; 함수 설정
+;;(defun alt-clean-equal-signs ()
+;;  "This function makes lines of = signs invisible."
+;;  (goto-char (point-min))
+;;  (let ((state buffer-read-only))
+;;	(when state (setq buffer-read-only nil))
+;;	(while (not (eobp))
+;;	  (search-forward-regexp "^=+$" nil 'move)
+;;	  (add-text-properties (match-beginning 0) 
+;;						   (match-end 0) 
+;;						   '(invisible t)))
+;;	(when state (setq buffer-read-only t))))
+
+;; ================================================================================
+;; emacs wiki
+;; Note that the hook used exists only on recent version of emacs ;
+;; so, you'll probably need the following:
+;; ================================================================================
+(define-derived-mode fancy-diary-display-mode  fundamental-mode
+  "Diary"
+  "Major mode used while displaying diary entries using Fancy Display."
+  ;;
+  ;; highlight-current-line-on 기능을 off 시킨다.
+  ;;(set (make-local-variable 'font-lock-defaults)
+  ;;	   '(fancy-diary-font-lock-keywords t))
+  (define-key (current-local-map) "q" 'quit-window)
+  (define-key (current-local-map) "h" 'calendar))
+ 
+(defadvice fancy-diary-display (after set-mode activate)
+  "Set the mode of the buffer *Fancy Diary Entries* to
+ `fancy-diary-display-mode'."
+  (save-excursion
+	(set-buffer fancy-diary-buffer)
+	(fancy-diary-display-mode)))
+
+;; ================================================================================
+;; calendar Day 와 Month 사용자 지정 / Localization
+;; 기존 diary 내용과 매칭이 안됨
+;; ================================================================================
+;;(setq calendar-week-start-day 1        ;; 일주일의 시작이 월요일부터
+;;    calendar-day-name-array ["日曜日" "月曜日" "火曜日" "水曜日" "木曜日" "金曜日" "土曜日"]
+;;    calendar-month-name-array ["1月," "2月," "3月," "4月," "5月," "6月," "7月," "8月," "9月," "10月," "11月," "12月,"]) ;두 글자는 안됨
+
+;; ================================================================================
+;; calendar printing 을 위한 설정
+;; ================================================================================
+;;(add-hook 'cal-tex-hook 'my-calendar-a4)
+;;(defun my-calendar-a4 ()
+;;  "Replace all occurences of 18cm with 17cm."
+;;  (goto-char (point-min))
+;;  (while (search-forward "18cm" nil t)
+;;    (replace-match  "17cm")))
+
+;; ================================================================================
+;; calendar & diary 기타 설정
+;; ================================================================================
+(setq calendar-week-start-day 1)        ;; 일주일의 시작이 월요일부터
+(setq cal-tex-diary t)
+(setq diary-file "~/.diary")
+(setq diary-list-include-blanks t)
+(add-hook 'diary-display-hook 'sort-diary-entries t)
+(add-hook 'initial-calendar-window-hook 'mark-diary-entries)
+(add-hook 'initial-calendar-window-hook 'mark-calendar-holidays)
+(setq today-visible-calendar-hook 'calendar-mark-today)
+(add-hook 'diary-display-hook 'fancy-diary-display)
+(add-hook 'list-diary-entries-hook 'include-other-diary-files)
+(add-hook 'list-diary-entries-hook 'sort-diary-entries)
+(add-hook 'mark-diary-entries-hook 'mark-included-diary-files)
+
+;; ================================================================================
+;; Diary Entries 예제
+;; ================================================================================
+;; If you call the function `(european-calendar)' it sets the variable ‘european-calendar-style’ to t ; your date specifications
+;; should have the order day, month, year. If it is nil, use month, day, year. There are many different ways to specify dates and
+;; date patterns, some of which are compatible with the calendar(1) command. Check the Emacs manual node "Date Formats" for more information.
+;;
+;;The following examples assume european calendar style!
+;;
+;;Here's an entry for a particular day:
+;;6 Nov 2000 cinema
+;;
+;;Multi line entries are also allowed:
+;;6 Nov 2000 cinema
+;;- watch movie
+;;- party all night
+;;
+;;If you want the entry to show as a diary entry, but not to mark your calendar, prefix with an ampersand ("&"):
+;;&7 Nov 2000 drink water watch TV
+;;
+;;Here's an example for an anniversary. Note that the diary entry will display my dad's age as well.
+;;%%(diary-anniversary 14 2 1940) Dad turns %d
+;;
+;;Here's an example for an entire block of days.
+;;%%(diary-block 14 2 2000 18 2 2000) Software Test
+;;
+;;Here's an example for every 60 days starting at 15 July 2003:
+;;%%(diary-cyclic 60 15 7 2003) Renew medication
+;;
+;;Here's for certain days of the week. Note how the leading "&" prevents the entry from standing out in my calendar.
+;;&%%(= 4 (calendar-day-of-week date)) Salsa
+;;
+;;And here are some complex list expressions. This one first determines wether we are on a friday (day number 5), and then it checks wether
+;;the date falls in a certain block.
+;;%%(and (= 5 (calendar-day-of-week date))
+;;	   (diary-block 20 10 2000 20 2 2001)) Luzern
+;;
+;;Here's an even fancier entry for every first working day of the month: Either we are talking about monday to friday (day number 1 to 5)
+;;and it's the first day of the month, or it is a monday and its the second day of the month, or it is a monday and the third day of the month.
+;;%%(let ((d (calendar-day-of-week date)))
+;;	(or (and (> d 0)
+;;			 (< d 6)
+;;			 (diary-date 1 t t))
+;;		(and (= d 1)
+;;			 (or (diary-date 2 t t)
+;;				 (diary-date 3 t t))))) Check reports
+;;
+;;If you want to see reminders of upcoming events, use diary-remind. The first argument is a diary-sexp like the ones used in the preceding
+;;examples (it took some time to find out quoting is needed…), the second arg is the number of days (or a list of numbers) before the event
+;;that the reminders should occur on. The optional third arg turns on marking of the reminders in the calendar.
+;;%%(diary-remind '(diary-date 1 8 2004) '(1 2 3) t) really-important-event-i-have-to-prepare-days-in-advance
+;;
+;;If you want to insert separators, try the following:
+;;%%(progn " ")
+;;
+;;or
+;;
+;;%%(progn t) ----
+
+;; ================================================================================
+;; Diary Mode Keymap
+;; ================================================================================
+;;m  mark diary entries
+;;d  view diary entries
+;;s  show all diary entries
+;;id insert diary entry
+;;iw insert weekly diary entry
+;;im insert monthly diary entry
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; emacs wiki에서 가져온 설정들
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; ================================================================================
+;; recentf-mode. 파일 메뉴에 open recent 서브 메뉴 포함 
+;; ================================================================================
+(recentf-mode 1)
+
+;; ================================================================================
+;; ibuffer. list-buffers(C-x C-b)를 ibuffer로 대체 
+;; ================================================================================
+; (require 'ibuffer)							;; 일반 버퍼 대신 ibuffer를 볼수 있도록
+; (global-set-key "\C-x\C-b" 'ibuffer)		;; 일반 버퍼 명령을 ibuffer로 매핑
+; (autoload 'ibuffer "ibuffer" "List buffers." t)
+;;(add-to-list 'ibuffer-never-show-regexps "^\\*") ;; *로 시작하는 버퍼는 List하지 않음
+
+;; ================================================================================
+;; iswitchbuffer. switch-to-buffer(C-x b)를 iswitchbuffer로 대체 
+;; iswitchbuffer 상태에서 C-k 를 누르면 현재 열려 있는 버퍼가 차례로 삭제된다.
+;; ================================================================================
+(iswitchb-mode 1)
+
+;; 
+;; iswitchb에서 특정 버퍼를 리스트 하지 않기 위한 설정...
+;; If you want to prevent certain buffers from showing up in the completion list,
+;; set `iswitchb-buffer-ignore'. Example:
+;;(setq iswitchb-buffer-ignore '("^ " "*Buffer"))
+;; This one is useful if you want to lose the *…* special buffers from the list.
+;; It's helpful if you're using the JDEE for editing Java apps, as you end up with
+;; buffers named *org.whatever.package.Class* which you might want to eliminate:
+;;(setq iswitchb-buffer-ignore '("^\\*"))
+
+;; 무엇에 쓰는 용도인지 잘 모르겠다...ㅡ.ㅡ;
+;; I used iswitchb for a while and really liked it. I began to explore to see if I can borrow iswitchb
+;; to make my scripts work like iswitchb as well. Well, it turned out iswitchb is coded in a way that
+;; makdes it really easy to borrow it to do regex-style completing-read:
+;;(defun my-icompleting-read(prompt choices)
+;;  (let ((iswitchb-make-buflist-hook
+;;		 (lambda ()
+;;		   (setq iswitchb-temp-buflist choices))))
+;;    (iswitchb-read-buffer prompt)))
+
+;; ================================================================================
+;; I wrote a litte function that is usefull (to me) when editing several files that might for
+;; any reason change on disk (for me its a cvs commit). It reverts all buffers that are visiting a file.
+;; ================================================================================
+;; revert buffer. 파일 내용이나 디렉토리 내용이 바뀌어서 Disk의 내용을 다시 불러올때
+;; g : dired 모드에서 사용
+;; M-x revert-buffer RET yes RET
+;; C-x C-v RET		
+
+(defun revert-all-buffers()
+  "Refreshs all open buffers from their respective files"
+  (interactive)
+  (let* ((list (buffer-list))
+		 (buffer (car list)))
+	(while buffer
+	  (if (string-match "\\*" (buffer-name buffer)) 
+	      (progn
+	        (setq list (cdr list))
+	        (setq buffer (car list)))
+	      (progn
+	        (set-buffer buffer)
+	        (revert-buffer t t t)
+	        (setq list (cdr list))
+	        (setq buffer (car list))))))
+  (message "Refreshing open files"))
+
+;; ================================================================================
+;; DoubledWords
+;; To Find and remove accidentally doubled doubled words I find this function useful.
+;; The regexp used in this function will not work in Emacs-versions less than 21.
+;; ================================================================================
+(defun query-remove-doubled-words (&optional force)
+  "Find all doubled words longer than 3 letters and ask to remove them.
+    With optional arg FORCE remove them without asking."
+  (interactive "P")
+  (let ((case-fold-search t)
+		(del-counter 0))
+	(while (re-search-forward
+			"\\(\\<\\w\\{3,\\}\\>\\)[ \t\n]*\\(\\1\\)" nil t)
+	  (replace-highlight (match-beginning 2) (match-end 2))
+	  (unwind-protect
+		   (when (or force (y-or-n-p "Remove this doubled word? "))
+			 (delete-region (match-beginning 2) (match-end 2))
+			 (canonically-space-region (match-beginning 0) (match-end 0))
+			 (setq del-counter (1+ del-counter)))
+		(replace-dehighlight)))
+	(if (> del-counter 0)
+		(message "Removed %d doubled %s." del-counter
+				 (if (< del-counter 1) "words" "word"))
+		(message "No doubled words found or removed."))))
+
+;; ================================================================================
+;; Outline-mode emacs wiki
+;; ================================================================================
+;; Heading에 사용되는 기호 정의. 디폴트는 [*\f]+
+;; (setq outline-regexp ";;; \\|(....")		;; For lisp-modes
+;; (setq outline-regexp " *[A-Z ]+")		;; For man-page
+;; 
+;; (setq outline-regexp " *\\([A-Za-z]\\|[IVXivx0-9]+\\)\\. *")		;; For Using Roman Numerals
+;; There, now you can use normal outline notation. If you use "outline" instead of "outline-minor" for mode,
+;; then you get font-lock as a bonus (but you lose whatever major mode you were in before). Note that it is looking
+;; for any number of spaces, followed by either a single letter or a Roman or Arabic numeral (multiple digits allowed),
+;; followed by any number of spaces, and the length of all of that together determines the outline level.
+;; So your outlines have to look like this:
+;; I.  blah blah
+;; II.  blah blah blah
+;; III.  blah blah
+;; A.  This
+;; B.  That
+;; …for this to work correctly. Interestingly enough, this didn't work for me on the very first line of the file ;
+;; I had to skip one line (an extra carriage return above "I"), then it worked as planned. Not sure why this is.
+;; 
+;; Some hooks for special modes
+;;(add-hook 'change-log-mode-hook
+;;		  (lambda ()
+;;			(setq outline-regexp "[[:digit:]]+")))
+;; note that the "^" is *implicit* at the beginning of the regexp
+;; Better use
+;;(set (make-local-variable 'outline-regexp) "…")
+;; as the above changes the global value.
+
+;; ================================================================================
+;; batch 파일과 같은 효과
+;; ================================================================================
+;;(defun root-portal ()
+;;  (interactive)
+;;  ;; frame settings
+;;  (menu-bar-mode -1)
+;;  (tool-bar-mode -1)
+;;  (xterm-mouse-mode 1)
+;;  ;; prepare
+;;  (delete-other-windows)
+;;  ;; need to start this first for calendar buffer to end up lowest
+;;  (calendar)
+;;  ;; build window configuration
+;;  (other-window 1)
+;;  (split-window)
+;;  (set-window-text-height nil 25)
+;;  (split-window-horizontally)
+;;  (other-window 1)
+;;  ;; terminal window width
+;;  (enlarge-window-horizontally
+;;   (- 80 (window-width)))
+;;  (other-window 1)
+;;  (split-window)
+;;  (other-window 1)
+;;  ;; eshell window height
+;;  (let ((eshell-height (window-height)))
+;;	(other-window -1)
+;;	(enlarge-window 
+;;	 (- eshell-height 5)))
+;;  ;; now start programms
+;;  (emacs-wiki-find-file "WelcomePage")
+;;  (other-window 1)
+;;  (eshell)
+;;  (other-window 2)
+;;  ;; do sth up left
+;;  (other-window 1)
+;;  (ansi-term "/bin/bash" "top")
+;;  (term-exec (current-buffer) "top" "top" nil nil)
+;;  (other-window 1))
+
+;; ================================================================================
+;; renumber
+;; 상당히 유용한 코드
+;; ================================================================================
+;; Assume you have a list as follows in your text:
+;;
+;; 1. fdsafdsa
+;; 2. fdsafds
+;; 2. fdsfdsa
+;; 
+;; The code at the bottom will define a new function called renumber, which you can call using M-x renumber.
+;; Put point at the beginning of the paragraph and call it. This should change the number of the last line as follows:
+;;
+;; 1. fdsafdsa
+;; 2. fdsafds
+;; 3. fdsfdsa
+;;
+;; You can also put point at the beginning of the second line and use M-x renumber to start from there:
+;;
+;; 1. fdsafdsa
+;; 1. fdsafds
+;; 2. fdsfdsa
+;;
+;; And you can use the numeric prefix argument to start from any other number.
+;; Use C-u 3 M-x renumber at the beginning of the paragraph to get the following list:
+;;
+;; 3. fdsafdsa
+;; 4. fdsafds
+;; 5. fdsfdsa
+;;
+;;Code:
+(defun renumber (&optional num)
+  "Renumber the list items in the current paragraph,
+    starting at point."
+  (interactive "p")
+  (setq num (or num 1))
+  (let ((end (save-excursion
+			   (forward-paragraph)
+			   (point))))
+	(while (re-search-forward "^[0-9]+" end t)
+	  (replace-match (number-to-string num))
+	  (setq num (1+ num)))))
+
+;; Here is an alternative version that does the same thing but for the current region instead of paragraph.
+;; It's good if you, like me, have set paragraph-start and paragraph-separate to treat each list item as a separate paragraph.
+;; 선택 영역에 대해서 작동
+(defun renumber-list (start end &optional num)
+  "Renumber the list items in the current START..END region.
+    If optional prefix arg NUM is given, start numbering from that number
+    instead of 1."
+  (interactive "*r\np")
+  (save-excursion
+	(goto-char start)
+	(setq num (or num 1))
+	(save-match-data
+	  (while (re-search-forward "^[0-9]+" end t)
+		(replace-match (number-to-string num))
+		(setq num (1+ num))))))
+
+;; ================================================================================
+;; Here is a function to boldify words:
+;; 무슨용도로 사용하는지 잘....ㅡ.ㅡ;
+;; ================================================================================
+(defun my-bold-word ()
+  (interactive)
+  (save-excursion
+	(forward-word 1)
+	(insert "*")
+	(backward-word 1)
+	(insert "*")))
+
+;; Though it does not toggle				;/
+ 
+;; My way of underlining text:
+;; 무슨용도로 사용하는지 잘....ㅡ.ㅡ;
+(defun pg-uline (ulinechar)
+  "Underline the current or the previous line with ULINECHAR"
+  (interactive "cUnderline with:")
+  (if (looking-at "^$")
+	  (next-line -1))
+  (end-of-line)  
+  (let ((linelen (current-column)))
+	(insert "\n")
+	(while (> linelen 0)
+	  (setq linelen (1- linelen))
+	  (insert ulinechar)))
+  (insert "\n"))
+
+;; ================================================================================
+;; show paren mode. 괄호등을 사용할때 마지막에 사용된 괄호에 대응하는 괄호를 찾음
+;; ================================================================================
+(show-paren-mode 1)
+
+;; paren color 지정
+;; 근데 이게 그렇게 필요할 지는 의문...
+;;(defface paren-face
+;;	'((((class color) (background dark))
+;;	   ;;	   (:foreground "grey20"))
+;; 	   (:foreground "yellow"))
+;;	  (((class color) (background light))
+;;	   ;;	   (:foreground "grey80")))
+;;	   (:foreground "green")))
+;;  "Face used to dim parentheses.")
+
+;; 모드에 따라서 paren-face 를 로드
+;; 역시, 이게 그렇게 필요할 지는 의문...
+;;(add-hook 'emacs-lisp-mode-hook 
+;;		  (lambda ()
+;;			(font-lock-add-keywords nil
+;;									'(("(\\|)" . 'paren-face)))))
+
+;; ================================================================================
+;; Isearch 관련 lisp code
+;; ================================================================================
+;; More Isearch Keys
+;; I recommend adding these bindings
+(add-hook 'isearch-mode-hook
+		  (function
+		   (lambda ()
+			(define-key isearch-mode-map "\C-h" 'isearch-mode-help)
+			(define-key isearch-mode-map "\C-t" 'isearch-toggle-regexp)
+			(define-key isearch-mode-map "\C-c" 'isearch-toggle-case-fold)
+			(define-key isearch-mode-map "\C-j" 'isearch-edit-string))))
+;; 키 설명
+;; C-h : lets you get help on isearch while isearching.
+;; C-t : lets you toggle between regular-expression isearching and normal isearching.
+;; C-c : lets you toggle case-sensitivity while isearching.
+;; C-j : lets you edit the search string. It also provides other options, like changing to whole-word isearching
+;;	('C-w' as first char) or non-incremental searching (RET).
+;;
+;; All of these bindings are provided by library Lisp:isearch-plus.el.
+
+;; 
+;; isearch 결과에 대해서 Pg Dn 과 Pg Up 키사용을 위한 키바인딩 / 별 필요 없을듯...
+;; When you do long searches (when you search for a keyword in a large file and get many hits) if you sometimes get tired in your
+;; left pinky (all those repeated C-s), you might want to try the following code. It rebinds 'C-s' and 'C-r' to the <next> and <prior>
+;; keys (page down and up):
+;;(define-key isearch-mode-map [next]
+;;  'isearch-repeat-forward)
+;;
+;;(define-key isearch-mode-map [prior]
+;;  'isearch-repeat-backward)
+
+;; 
+;; C-c 키로 case-fold가 토글 될때마다 mode line에 표시해 준다.
+;; Mode-Line Indicator
+;; If you need an indicator for case-fold-search (so that you can see wether it on the modeline),
+;; add the following to your ~/.emacs:
+(add-to-list 'minor-mode-alist '(case-fold-search " CFS"))
+
+;;
+;; 검색후 Enter 입력시, 검색된 문자열 앞에 커서를 위치(기본 행동은 문자열 뒤에 커서를 위치)
+;; 아래 주석처리 된 설정을 적용시키면, 검색 도중 C-g(명령 취소)를 입력하면, 현재 커서가 있는
+;; 문자열 앞에 커서를 위치.(기본 행동은 검색을 처음 시작한 곳으로 커서를 위치)
+;; (아래 설정 적용하면 열라 불편하다!!!)
+;;(add-hook 'isearch-mode-end-hook 'my-goto-match-beginning)
+;;(defun my-goto-match-beginning ()
+;;  (when isearch-forward (goto-char isearch-other-end)))
+(defadvice isearch-exit (after my-goto-match-beginning activate)
+  "Go to beginning of match."
+  (when isearch-forward (goto-char isearch-other-end)))
+
+;; ================================================================================
+;; occur관련
+;; ================================================================================
+;; Very useful: ‘M-x occur’ instead of using any other searches.
+;; This lists all the lines of the current buffer matching a regexp.
+;; This is so useful, that you might want to use a keybinding in my .emacs for it. For example:
+;; M-x occur를 C-c o 로 단축키 배정
+(global-set-key (kbd "C-c o") 'occur)
+
+;;
+;; isearch 탐색 상태에서 C-o 를 누르면 isearch에서 탐색중인 단어를 대상으로 occur를 실행
+(defun isearch-occur ()
+  "Invoke `occur' from within isearch."
+  (interactive)
+  (let ((case-fold-search isearch-case-fold-search))
+	(occur (if isearch-regexp isearch-string (regexp-quote isearch-string)))))
+ 
+(define-key isearch-mode-map (kbd "C-o") 'isearch-occur)
+ 
+(defun occurs (&optional arg)
+  "Switch to *Occur* buffer, or run `occur'.
+  Without a prefix argument, switch to the buffer.
+  With a universal prefix argument, run occur again.
+  With a numeric prefix argument, run occur with NLINES
+  set to that number."
+  (interactive "P")
+  (if (and (not arg) (get-buffer "*Occur*"))
+	  (switch-to-buffer "*Occur*")
+      (occur (read-from-minibuffer "Regexp: ")
+             (if (listp arg) 0 arg))))
+
+;;
+;; Since I didn't like the original behaviour of 'occur', I redefined one of the functions:
+(defun occur-mode-goto-occurrence ()
+  "Go to the occurrence the current line describes.
+ This function redefined by alex!  Instead of using
+ `pop-to-buffer' it now uses `switch-to-buffer'."
+  (interactive)
+  (let ((pos (occur-mode-find-occurrence)))
+	(switch-to-buffer occur-buffer)
+	(goto-char (marker-position pos))))
+
+;;
+;; occur 재귀적 호출 허용
+;; Call recursively
+;; This allows you to call 'occur' on an occur buffer.
+;; Assume you have a buffer A. Run 'occur' gives you a buffer B. Run 'occur'again.
+;; This will rename buffer B and give a you buffer C. If you select a line in buffer C,
+;; that will pop you to the match in buffer B. Select the line again and now you are back in buffer A.
+;; As you can see, this is not optimal and it seems that Emacs 21 will have a better way to deal with this.
+(defadvice occur (before occur-before)
+  "Allow mutliple calls to occur..."
+  (if (string-match "\*Occur\*" (buffer-name))
+	  (rename-buffer (buffer-name) t)))
+(ad-activate 'occur)
+
+;;
+;; Clean the *Occur* Buffer
+;; This gets rid of the line numbers and the header line, so that the result is more like the output from 'grep'.
+;; You might want to bind this to C-c C-x.
+(defun occur-mode-clean-buffer ()
+  "Removes all commentary from the *Occur* buffer, leaving the
+  unadorned lines."
+  (interactive)
+  (if (get-buffer "*Occur*")
+	  (save-excursion
+		(set-buffer (get-buffer "*Occur*"))
+		(goto-char (point-min))
+		(toggle-read-only 0)
+		(if (looking-at "^[0-9]+ lines matching \"")
+			(kill-line 1))
+		(while (re-search-forward "^[ \t]*[0-9]+:"
+								  (point-max)
+								  t)
+		  (replace-match "")
+		  (forward-line 1)))
+	  (message "There is no buffer named \"*Occur*\".")))
+;; Rumour has it that CVS Emacs (i.e., what will become version 21.4) has
+;; "multi-occur", which searches in all of Emacs's buffers, not just the current one.
+
+;; ================================================================================-
+;; 현재 커서가 있는 라인을 복사 한 후 그 다음 라인에 붙여 넣는다.
+;; C-a C-k C-y C-y C-p 와 같은 효과
+;; Here is another nice function, from Groups:increase+number+under+cursor [1]
+;; ================================================================================
+(defun another-line (num-lines)
+  "Copies line, preserving cursor column, and increments any numbers found.
+  Copies a block of optional NUM-LINES lines.  If no optional argument is given,
+  then only one line is copied."
+  (interactive "p")
+  (if (not num-lines) (setq num-lines 0) (setq num-lines (1- num-lines)))
+  (let* ((col (current-column))
+		 (bol (save-excursion (forward-line (- num-lines)) (beginning-of-line) (point)))
+		 (eol (progn (end-of-line) (point)))
+		 (line (buffer-substring bol eol)))
+	(goto-char bol)
+	(while (re-search-forward "[0-9]+" eol 1)
+	  (let ((num (string-to-int (buffer-substring
+								 (match-beginning 0) (match-end 0)))))
+		(replace-match (int-to-string (1+ num))))
+	  (setq eol (save-excursion (goto-char eol) (end-of-line) (point))))
+	(goto-char bol)
+	(insert line "\n")
+	(move-to-column col)))
+
+(define-key global-map (kbd "M-o") 'another-line)
+
+;; ================================================================================
+;; 한 라인을 빠르게 copy / 위 설정과 비슷한 효과
+;; ================================================================================
+(defun quick-copy-line ()
+  "Copy the whole line that point is on and move to the beginning of the next line.
+  Consecutive calls to this command append each line to the kill-ring."
+  (interactive)
+  (let ((beg (line-beginning-position 1))
+		(end (line-beginning-position 2)))
+	(if (eq last-command 'quick-copy-line)
+		(kill-append (buffer-substring beg end) (< end beg))
+        (kill-new (buffer-substring beg end))))
+  (beginning-of-line 2))
+
+
+;; ================================================================================
+;; grep 관련 단축키 지정
+;; 하지만 본인은 이 명령을 거의 사용해본적이 없는 관계로...
+;; ================================================================================
+;;(defvar grep-and-find-map (make-sparse-keymap))
+;;(define-key global-map "\C-xf" grep-and-find-map)
+;;(define-key global-map "\C-xfg" 'find-grep-dired)
+;;(define-key global-map "\C-xff" 'find-name-dired)
+;;(define-key global-map "\C-xfl" (lambda (dir pattern)
+;;								  (interactive "DFind-name locate-style (directory):
+;;                     \nsFind-name locate-style (filename wildcard): ")
+;;								  (find-dired dir (concat "-name '*" pattern "*'"))))
+;;(define-key global-map "\C-xg" 'grep)
+
+;; ================================================================================
+;; C-w 키 행위 변경
+;; This may be of interest to people who (a) are happy with C-w and friends for killing and yanking, (b) use transient-mark-mode,
+;; and (c) also like the traditional Unix tty behaviour that C-w deletes a word backwards. It tweaks C-w so that if the mark is inactive,
+;; it deletes a word backwards instead:
+;; C-w의 기본 동작은 마크와 포인터 사이의 내용을 kill-ring buffer에 저장한다.(영역 사이의 내용은 사라짐)
+;; 그러나 아래 설정을 적용시키면 영역이 지정되지 않을 경우 포인터 전에 한 단어만을 kill-ring buffer에 저장
+;; ================================================================================
+
+(defadvice kill-region (before unix-werase activate compile)
+  "When called interactively with no active region, delete a single word
+    backwards instead."
+  (interactive
+   (if mark-active (list (region-beginning) (region-end))
+	   (list (save-excursion (backward-word 1) (point)) (point)))))
+
+
+;; ================================================================================
+;; To cycle through the entries in the kill ring, use M-y after yanking to go through each of the entries.
+;; This is a way to cycle in the reverse direction (and set up M-Y to do so - that's META+Shift):
+;; C-y (yanking) 후 M-y 는 Kill-ring을 순환한다. 아래 설정을 적용하면 Meta-Shift-Y 키도 Kill-ring을 역순환 할 수 있다.
+;; ================================================================================
+(defun yank-pop-backwards ()
+  (interactive)
+  (yank-pop -1))
+
+(global-set-key "\331" (quote yank-pop-backwards)) ;; M-Y
+
+;; ================================================================================
+;; Example(wiki)
+;; indent-rigidly
+;; ================================================================================
+;; 1. Set mark? (C-SPC)
+;; 2. Move the cursor? a couple of lines? down
+;; 3. C-x TAB
+;;
+;; This works only one time, consecutive presses of ‘C-x TAB’ beep at you ("The mark is not active now").
+;; This works fine when using ‘pc-selection-mode’ and also the standard behaviour when the region is not marked at all.
+;; This is quite annoying, I am thinking of disabling Transient Mark mode and settle with the hardcore default behaviour.
+;; I don't know if it messes up with other commands.
+
+
+;; ================================================================================
+;; In Emacs 21.2.1 and newer you can simply do (setq x-select-enable-clipboard t) to make cutting and pasting use the X clipboard.
+;; ================================================================================
+;; cutting 과 pasting에 X-clipboard를 사용하도록 설정. / 그냥 디폴트로 하는게 더 편한거 같다
+;; 이것이 설정 되지 않으면 emacs에서 cutting, copying 키로 Kill-ring에 저장된 문자열은 다른 어플들에 복사되지 않는다.
+;; 오직 마우스로 선택된 영역만이 다른 어플들에 복사 될 수 있다.
+;; (setq x-select-enable-clipboard t)
+
+;; ================================================================================
+;; narrow mode
+;; ================================================================================
+;; This feature is among the DisabledCommands as it sure can confuse users who don't know it,
+;; thus it must be undisabled before use. You can either the InteractiveCustomize? -feature via M-x customize RET,
+;; or use the following EmacsLisp:
+(put 'narrow-to-defun 'disabled nil)
+(put 'narrow-to-page 'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+
+;; 
+;; So, the narrowing can be set to the current region, page or defun, and each of these has it's own command.
+;; By default the narrowing-commands are behind C-x n prefix. When narrowing is in effect, the ModeLine states so in the MinorMode portion.
+;; To cancel it, either click the word "Narrow" in the modeline with MouseButton? 2, or run the `widen' command with C-x n w.
+;;
+;; narrow key
+;; defun	: C-x n d
+;; page		: C-x n p
+;; region	: C-x n n
+;; narrow undo : C-x n w
+
+;; ================================================================================
+;; selective undo
+;; ================================================================================
+;; Select an area of text, then press C-u C-_ (undo with a prefix argument).
+;; This undoes the last change to the selected region, even if you've later made changes to some other area. You can repeat it.
+;; How cool!
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;Programming Mode ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; ================================================================================
+;; C mode
+;; ================================================================================
+(add-hook 'c-mode-common-hook
+          '(lambda()
+			;;C 코딩 스타일 정의 
+            (c-set-style "k&r")    
+            (setq c-indent-level 4)
+			(setq default-tab-width 4)
+			(setq c-basic-offset 4) ;; indent use only 4 blank
+;;			(setq indent-tabs-mode nil) ;; no tab
+            (setq c-continued-statement-offset 4)
+            (setq c-continued-brace-offset -4)
+            (setq c-recognize-knr-p nil)
+            (setq c-auto-newline t)
+            (c-toggle-auto-hungry-state 1)
+            (c-set-offset 'inline-open 0)
+            (turn-on-font-lock)
+			(setq doxymacs-mode t)
+			(hs-minor-mode 1)
+			(setq compilation-window-height 16)
+            (define-key c-mode-map [f9] 'compile)
+            (define-key c++-mode-map [f9] 'compile)
+			(define-key c-mode-base-map "\r" 'newline-and-indent)
+			;; quickly switching between header and implementation
+			;; http://emacs-fu.blogspot.com/2008/12/quickly-switching-between-header-and.html
+			(local-set-key  (kbd "C-c o") 'ff-find-other-file)
+))
+
+(add-hook 'c++-mode-common-hook
+          '(lambda()
+			;; C++ 코딩 스타일 정의            
+            (c-set-style "k&r")    
+            (setq c-indent-level 4)
+			(setq default-tab-width 4)
+			(setq c-basic-offset 4)		;; indent use only 4 blank
+;;			(setq indent-tabs-mode nil) ;; no tab
+            (setq c-continued-statement-offset 4)
+            (setq c-continued-brace-offset -4)
+            (setq c-recognize-knr-p nil)
+            (setq c-auto-newline t)
+            (setq c-hungry-delete-key t)
+            (c-toggle-auto-hungry-state 1)
+            (c-set-offset 'inline-open 0)
+            (turn-on-font-lock)
+			(setq doxymacs-mode t)
+			(hs-minor-mode 1)
+			(setq compilation-window-height 16)
+            (define-key c-mode-map [f9] 'compile)
+            (define-key c++-mode-map [f9] 'compile)
+			(define-key c-mode-base-map "\r" 'newline-and-indent)
+			;; quickly switching between header and implementation
+			;; http://emacs-fu.blogspot.com/2008/12/quickly-switching-between-header-and.html
+			(local-set-key  (kbd "C-c o") 'ff-find-other-file)
+))
+	     
+;; ================================================================================
+;; Java mode
+;; ================================================================================
+(add-hook 'java-mode-hook
+          '(lambda()
+            (turn-on-font-lock)))
+	     
+;; ================================================================================
+;; CPerl mode
+;; ================================================================================
+(defalias 'perl-mode 'cperl-mode)						;;perl-mode 대신 cperl-mode 가 디폴트로 사용되도록
+(add-hook 'cperl-mode-hook
+          '(lambda()
+            (turn-on-font-lock)
+			(setq cperl-hairy t)						;; Turns on most of the CPerlMode options
+            (setq cperl-font-lock t)
+			(setq cperl-lazy-help-time t)				;; Not-nil (and non-null) means to show lazy help after given idle time.
+            (setq cperl-set-style "BSD")				;;들여쓰기 스타일 정의
+			(setq cperl-electric-lbrace-space t)		;; Non-nil (and non-null) means { after $ should be preceded by ` '.
+            (setq cperl-electric-parens t)				;; 괄호가 열리면 자동으로 닫는 괄호 생성
+            (setq cperl-electric-parens-mark t)
+			(setq cperl-electric-keywords t)			;; expands for keywords such as foreach, while, etc...
+			(setq cperl-electric-linefeed t)			;; If true, LFD should be hairy in CPerl, otherwise C-c LFD is hairy.
+            (setq cperl-extra-newline-before-brace t)	;; 조건문 들여쓰기 재 정의
+            (setq cperl-auto-newline t)					;; 괄호 전,후 / 세미콜론, 콜론뒤에 자동으로 newlline 이 들어가도록한다
+            (setq cperl-indent-level 4)
+            (setq cperl-continued-statement-offset 4)
+			(setq cperl-info-on-command-no-prompt t)	;; Not-nil (and non-null) means not to prompt on C-h f.
+			(setq cperl-clobber-lisp-bindings t)		;;	Not-nil (and non-null) means not overwrite C-h f.
+            (setq cperl-brace-offset -4)
+            (setq cperl-label-offset -4)
+            (setq cperl-tab-always-indent t)			;; TAB 키는 현재 라인에 들여쓰기를 마춘다
+			(setq cperl-highlight-variables-indiscriminately t)		;; It's not working with CPerlMode 4.23 as shipped with Emacs though.
+			(setq cperl-invalid-face (quote off))))		;; trailing whitespace disable
+
+
+;; ================================================================================
+;; python mode
+;; ================================================================================
+(add-hook 'phthon-mode-hook
+          '(lambda()
+            (turn-on-font-lock)
+            (setq py-indent-offset 4)
+            (setq py-python-command "python")
+            (setq py-temp-directory "/tmp")
+            (setq font-lock-keywords python-font-lock-keywords)))
+
+;; ================================================================================
+;;Emacs lisp mode
+;; ================================================================================
+(add-hook 'emacs-lisp-mode-hook
+          '(lambda()
+            (turn-on-font-lock)))
+	     
+	     
+;; ================================================================================
+;; SQL
+;; ================================================================================
+(add-hook 'sql-mode
+          '(lambda()
+            (turn-on-font-lock)
+            (setq sql-command "mysql")))
+	    
+(autoload 'sql-mode "sql-mode" "SQL Editing Mode" t)
+(setq auto-mode-alist
+      (append '(("\\.sql\\'" . sql-mode)
+                ("\\.tbl\\'" .sql-mode)
+                ("\\.sp\\'" . sql-mode)) auto-mode-alist))
+
+;; ================================================================================
+;; Todo mode
+;; ================================================================================
+(autoload 'todo-mode "todo-mode"
+  "Major mode for editing TODO lists." t)
+(autoload 'todo-show "todo-mode"
+  "Show TODO items." t)
+(autoload 'todo-insert-item "todo-mode"
+  "Add TODO item." )
+
+;; ================================================================================
+;; css-mode
+;; ================================================================================
+(autoload 'css-mode "css-mode")
+(add-to-list 'auto-mode-alist '("\\.css\\'" . css-mode))
+(setq cssm-indent-function #'cssm-c-style-indenter)
+(setq cssm-indent-level '2)
+
+;; ================================================================================
+;; html-helper-mode 설정
+;; ================================================================================
+;; configure HTML editing / 새로운 html-helper-mode 설정 / emacs wiki
+;; ================================================================================
+;;(setq load-path (cons "/home/pcharley/emacs/html-helper-mode/" load-path)) ;;개인이 다운 받은 패키지 사용시
+;;(require 'php-mode) ;; 위에서 설정
+;;(require 'mmm-mode) ;; 위에서 설정
+;;
+;; will make psgml shut up about "External entity HTML not found" when the document does not have a doctype.
+;; The following is neccessary to configure and enable the combined HTML editing mode within Emacs:
+(setq sgml-warn-about-undefined-entities nil)
+(add-hook 'php-mode-user-hook 'turn-on-font-lock)
+(setq mmm-global-mode 'maybe)
+
+(add-hook 'html-helper-mode-hook
+          '(lambda ()
+            (turn-on-font-lock)
+            (setq html-helper-build-new-buffer t) ;새로운 html 문서 작성시 html 기본구조를 가지고 시작
+            (setq html-helper-address-string "<a href=\"mailto:pcharley@debian.onoffkorea.com\">P.C.Harley &lt;pcharley@debian.onoffkorea.com&gt;</a>")	;
+            (setq tempo-interactive t)
+            (setq html-helper-do-write-file-hooks t) ;timestamp 기능
+			;; 아래 설정은 emacs wiki 설정
+			(setq sgml-warn-about-undefined-entities nil)
+			(add-hook 'php-mode-user-hook 'turn-on-font-lock)
+			(setq mmm-global-mode 'maybe)
+			;;
+			;; What features should be turned on in this html-mode?
+			(add-to-list 'mmm-mode-ext-classes-alist '(html-helper-mode nil html-js))
+			(add-to-list 'mmm-mode-ext-classes-alist '(html-helper-mode nil embedded-css))
+			(add-to-list 'mmm-mode-ext-classes-alist '(html-helper-mode nil fancy-html))
+			;;
+			;; Not exactly related to editing HTML: enable editing help with mouse-3 in all sgml files
+			(defun go-bind-markup-menu-to-mouse3 ()
+			  (define-key sgml-mode-map [(down-mouse-3)] 'sgml-tags-menu))
+			;;
+			(add-hook 'sgml-mode-hook 'go-bind-markup-menu-to-mouse3)
+			;;
+			;; What files to invoke the new html-mode for?
+			;; 아래 auto mode alist와 충돌. 주석을 하지 않더라도  아래 설정이 적용됨
+			;; 이 설정을 사용하는 것보다는 아래 auto mode alist에서 설정 하는 것이 좋을 듯.
+			;;(add-to-list 'auto-mode-alist '("\\.inc\\'" . html-helper-mode))
+			;;(add-to-list 'auto-mode-alist '("\\.phtml\\'" . html-helper-mode))
+			;;(add-to-list 'auto-mode-alist '("\\.php[34]?\\'" . html-helper-mode))
+			;;(add-to-list 'auto-mode-alist '("\\.[sj]?html?\\'" . html-helper-mode))
+			;;(add-to-list 'auto-mode-alist '("\\.jsp\\'" . html-mode))
+			;;
+			;; set up an mmm group for fancy html editing
+			(mmm-add-group
+			 'fancy-html
+			 '(
+			   (html-php-tagged
+				:submode php-mode
+				:face mmm-code-submode-face
+				:front "<[?]php"
+				:back "[?]>")
+			   (html-css-attribute
+				:submode css-mode
+				:face mmm-declaration-submode-face
+				:front "style=\""
+				:back "\"")))))
+
+;; html-font 에 관한 설정(html-helper 모드에서 색깔 지정)
+;; html-helper-mode 2.19.1 베타버젼에서 부터는 html-font 코드가 내장 되어 있음
+;;(add-hook 'html-helper-load-hook
+;;          '(lambda () (require 'html-font)))
+;;(add-hook 'html-helper-mode-hook
+;;          '(lambda () (font-lock-mode 1)))
+
+;; ================================================================================
+;; php-mode(로드패스로 지정된 곳에 있는 php.el을 사용)
+;; 데비안 패키지 사용시 필요 없음
+;; ================================================================================
+;(autoload 'php-mode "php-mode" "PHP editing mode" t)
+;(add-to-list 'auto-mode-alist '("\\.php$" . php-mode))
+
+;; ================================================================================
+;; auto mode alist
+;; ================================================================================
+;;(setq-default auto-fill-function 'do-auto-fill)		;; auto-fill모드 설정
+(autoload 'x-resource-generic-mode "generic-x" nil t)	;; generic-x 모드 설정
+(setq auto-mode-alist
+      (nconc '(("\\.ml[iylp]?\\'" . caml-mode)
+               ("\\.sml\\'" . sml-mode)
+               ("\\.grm\\'" . sml-mode)
+               ("\\.ML\\'" . sml-mode)
+               ("\\.htm\\'" . html-helper-mode)
+               ("\\.html\\'" . html-helper-mode)
+               ("\\.shtml\\'" . html-helper-mode)
+               ("\\.thtml\\'" . html-helper-mode)
+               ("\\.css\\'" . css-mode)
+               ("\\.php\\'" . php-mode)
+               ("\\.php3\\'" . php-mode)
+               ("\\.gnus\\'" . emacs-lisp-mode)
+               ("\\.abbrev_defs\\'" . emacs-lisp-mode)
+               ("\\el\\'" . emacs-lisp-mode)
+               ("\\.s?html\\'" . sgml-mode)
+               ("\\.sgml\\'" . sgml-mode)
+               ("\\.tex\\'" . latex-mode)
+               ("\\.ks$\\'" . latex-mode)
+               ("\\.cl\\'" . lisp-mode)
+               ("\\.cgi\\'" . cperl-mode)
+               ("\\.pl\\'" . cperl-mode)
+               ("\\.pm\\'" . cperl-mode)
+               ("\\.py\\'" . phthon-mode)
+               ("\\.c\\'" . c-mode)
+               ("\\.C\\'" . c-mode)
+               ("\\.cc\\'" . c++-mode)
+               ("\\.cpp\\'" . c++-mode)
+               ("\\.h\\'" . c++-mode)
+               ("\\.hh\\'" . c++-mode)
+               ("\\.idl\\'" . c++-mode)
+               ("\\.txi\\'" . Texinfo-mode)
+               ("\\.java\\'" . java-mode)
+               ("\\.prolog\\'" . prolog-mode)
+               ("\\.pro\\'" . prolog-mode)
+               ("\\.txt\\'" . text-mode))
+             auto-mode-alist))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;기타 설정 ;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; ================================================================================
+;; 한번 웃어보죠.....:)
+;; ================================================================================
+(defconst wq "This is not vi!  Use C-x C-c instead.")
+(defconst q! "You are dumb.")
+
+;; ================================================================================
+;; 패스워드를 입력할 때 보이지 않게 하기위해..(에러남...!!)
+;; ================================================================================
+;;(add-hook 'comint-output-filter-functions 'comint-watch-for-password_prompt)
+
+;; ================================================================================
+;; 디폴트 키 바인딩
+;; ================================================================================
+;;(global-set-key [delete] 'delete-char)
+;;(global-set-key [home] 'beginning-of-line)
+;;(global-set-key [end] 'end-of-line)
+;;(global-set-key [f5] 'delete-other-windows)
+(global-set-key "\M-\C-g" 'goto-line)
+
+;; ================================================================================
+;; 비트음에 대한 설정
+;; ================================================================================
+;;(setq visible-bell t)                 ;경고음대신 화면에 역상표시
+;;(setq ring-bell-function              ;위 visible-bell과는 반대되는 변수...
+;;      '(lambda nil
+;;        (message "Ops..Something Wrong??")
+;;        (sit-for 1)))
+
+;; ================================================================================
+;; 한줄을 지우기 위해 라인의 처음으로 가지 않아도 된다
+;; 이것을 사용하기 위해서는 M-x ej-kill-line 을 실행 시켜야 한다
+;; ================================================================================
+(defun ej-kill-line ()
+  "kill whole line"
+  (interactive)
+  (beginning-of-line)
+  (kill-line)
+  (global-set-key "\C-k" 'ej-kill-line))
+
+;; ================================================================================
+;; 약어모드
+;; ================================================================================
+;; read abbreviations file
+;;(when (file-exists-p abbrev-file-name) (read-abbrev-file nil t))
+
+;; Learning GNU Emacs에서 발췌한 부분
+;;(setq-default abbrev-mode t)
+;;(read-abbrev-file "~/.abbrev_defs")
+;;(set save-abbrevs t)
+
+;; ================================================================================
+;; 새로운 프레임 생성시 크기 설정
+;; ================================================================================
+(setq initial-frame-alist '((width . 120) (height . 75))) ;; 첫번째 프래임의 크기를 설정
+(setq default-frame-alist '((width . 80) (height . 40))) ;; 그 다음 프래임의 크기를 설정
+
+(eval-and-compile
+  (require 'cl)
+  (require 'backquote)
+  (defsetf frame-parameter (frame parameter) (new-value)
+    `(progn
+       (modify-frame-parameters ,frame (list (cons ,parameter ,new-value)))
+       ,new-value))
+  (defsetf default-frame-parameter (parameter) (new-value)
+    `(progn
+       (setq default-frame-alist
+	 (cons (cons ,parameter ,new-value)
+	       default-frame-alist))
+      ,new-value)))
+
+;; ================================================================================
+;; 프레임 명령 / emacs wiki
+;; ================================================================================
+;;
+;; C-x 5 2 (wait) M-x command 대신 C-x 5 M-x command-name RET
+;; You can now use "C-x 5 M-x command-name RET" to run a command in a new frame. Whee!
+(defun run-command-other-frame (command)
+  "Run COMMAND in a new frame."
+  (interactive "CC-x 5 M-x ")
+  (select-frame (new-frame))
+  (call-interactively command))
+(global-set-key "\C-x5\M-x" 'run-command-other-frame)
+
+;; ================================================================================
+;;; frame looking change  
+;; ================================================================================
+;;; 스크롤바 크기및 프레임 생성시 위치 설정
+;;; 새로운 프레임 생성 스크롤 바가 왼쪽에 위치. 기본 윈도우에서는 오른쪽에 위치
+; (setf (frame-parameter nil 'scroll-bar-width) 7)
+; (setf (default-frame-parameter 'scroll-bar-width) 7)
+(setf (frame-parameter nil 'vertical-scroll-bars) 'right)
+
+;; ================================================================================
+;; fill paragraph (문단 구분을 위한 설정)
+;; ================================================================================
+(setq-default paragraph-start "^[|:> \t\n\c-l]*$")
+(setq-default paragraph-separate (default-value 'paragraph-start))
+(setq adaptive-fill-regexp (substring (default-value 'paragraph-start) 1 -1))
+
+;; ================================================================================
+;; 검색 환경 설정
+;; ================================================================================
+;;(setq-default case-fold-search nil)	; nil인 경우 대소문자를 구분하여 검색. 기본은 t
+;;(setq-default case-replace nil)		; nil인 경우 치환 시에 대소문자를 변경하지 않는다. 기본은 t
+
+;; ================================================================================
+;; 검색및 치환을 할때 찾은 문자열을 표시되게 함
+;; ================================================================================
+(setq search-highlight t)               
+(setq query-replace-highlight t)
+
+;; ================================================================================
+;; make searching more convenient
+;; ================================================================================
+(setq search-slow-speed (1+ (expt 2 24)))	; 터미널속도가 설정값 이하면 느린 스타일의 점진적탐색을 사용
+(setq search-slow-window-lines 7)			; 느린 스타일의 점진적 탐색을 할 때 사용하는윈도우의 높이, 즉 줄 수를 의미
+
+(setq blink-matching-delay 0.5)				; 호,중괄호,대괄호를 타자할때 그 상대 괄호로 이동하여 표시할때 딜레이 시간
+(setq mouse-yank-at-point t)				; nil이 아니면 click대신에 포인트가 위치한곳에서 yank명령으로 실행
+;;(setq scroll-step 1)						; 커서를 수직방향으로 이동해서 현재 윈도우를 벗어날 때 이 줄 수만큼 앞뒤로
+											; 이동한다. 0이면 커서가 화면 중앙에 위치하도록 줄 수만큼 스크롤
+;;(setq hscroll-step 1)						; 커서를 수평방향으로 이동해서 현재 윈도우를 벗어날 때 이 열 수만큼 좌우로
+											; 이동한다.0이면 커서가 화면의 중앙에 위치하도록 충분한 줄 수만큼 스크롤
+
+;; ================================================================================
+;; ps print options버전 20부터 생긴 ps print옵션 설정
+;; ================================================================================
+(setq ps-lpr-command "lpr")
+(setq ps-print-header-frame nil)
+(setq ps-header-lines 1)
+(setq ps-landscape-mode t)
+(setq ps-paper-type 'a4)
+(setq ps-number-of-columns 2)
+(setq ps-print-color-p nil)
+
+;; lpr로 넘어가는 옵션지정
+;; (setq lpr-switches '("<option_value>"))
+;; lpr 프린트 지정 옵션
+;; (setq lpr-print-switch '("-Plpt1"))
+;; print 명령시 헤더를 출력하는 프로그램 지정
+;; (setq lpr-page-header-prgram '("<header_program>))
+;; print header string
+;; (setq lpr-headers-switches '("Emacs Printing..."))
+
+;; ================================================================================
+;; 자동저장 기능 설정
+;; ================================================================================
+;; 백업 파일을 하나 만드느냐, 여러 개를 만드느냐 결정
+;; t        : 숫자를 사용한 여러개의 백업 파일을 생성
+;; nil      : 백업 할려는 파일이 이미 숫자를 사용하여 여러개의 백업을 만들고 있으면
+;;            숫자를 사용한 백업을 적용하고 그렇지 않으면 하나의 백업 파일을 만든다
+;; never : 어떤 경우라도 오직 하나의 백업 파일만을 유지한다. 즉 숫자를 사용한 백업을 적용하지 않는다
+;; 여기서 never는 심볼을 의미하므로 (setq version-control 'never) 와 같이 설정해야 한다.
+;;(setq version-control t)                  
+(setq auto-save-default nil)           
+(setq make-backup-files nil)
+;;(setq kept-old-versions nil)					;; 지우지 않고 보관할 가장 오래된 백업 파일 갯수
+;;(setq kept-new-versions nil)					;; 지우지 않고 보관할 최근의 백업 파일 갯수
+;;(setq delete-old-version nil)					;; 이 옵션이 nil이면 지울때 사용자에게 물어봄
+;;(setq backup-by-copying nil)					;; nil이 아닌 값이면, 백업을 만들때 "복사" 방식을 사용하나.
+												;; 즉, 이맥스 버퍼의 바뀐 내용은 기존 파일에 저장되고, 백업은 새로운
+												;; file을 만들어 거기로 복사를 한다
+;;(setq backup-by-copying-when-linked nil)		;; nil 아닌 값이면, 여러개의 파일이름을 가진 파일에 대해서 "복사"방식을 사용한다.
+												;; backup-by-copying 이 nil인 경우에만 의미가 있다.
+;;(setq backup-by-copying-when-mismatch nil)	;; "이름바꾸기" 방식을 사용하였을 때, 파일의 소유자나 그룹이 바뀌는 경우에만 "복사"방식을 사용한다.
+												;; back-up-by-copying 이 nil인 경우에만 의가가 있다(루트권한으로 이맥스가 실행되면 nil이 아닌
+												;; 값이 디폴트로 설정된다)
+;;(setq backup-by-copying-when-privileged-mismatch ;; 이 변수의 값으로 지정된 숫자 이하의 uid를 갖는 사용자(권한을 가진 사용자 id가
+												;; 전통적인 유닉스에서 특정한 값 이하만을 사용하기 때문에 이런 가정을 하게되었다)들에 대해서
+												;; 권한이 있는 사용자가 바뀌게 될 경우에 "복사" 방식을 사용한다.
+												;; back-up-by-copying 와 backup-by-copying-when-mismatch가 모두 nil 일때만 의미가 있다
+
+;; ================================================================================
+;; 기타
+;; ================================================================================
+;;(setq explicit-shell-file-name "/bin/bash")   ; 쉘명령이나 쉘환경에서 사용되는 쉘지정
+(setq-default fill-column 75)					; 한 줄의 폭을 75 column으로 정함
+(setq scroll-preserve-screen-position nil)		; nil이 아니면 전체 화면을 스크롤해도 화면의 커서 위치는 바뀌지 않음
+(setq require-final-newline t)					; 저장하는 파일의 끝에 LINEFEED가 없는 경우에 초기값이 nil이면 그것을
+												; 추가하지 않고, t이면 자동으로 추가한다.
+												; 그렇지 않으면 LINEFEED를 추가할 것인지 묻는다.
+(setq track-eol nil)							; nil이 아니면 중의끝에 커서가 위치할 때마다 커서를 위아래로 움직여도
+												; 계속 줄 끝에 위치하도록 하거나 커서가 있던 열 위치를 유지한다.
+(setq kill-whole-line t)						; nil이 아니면 라인 맨처음에서 C-k 명령으로 라인을 모두 지울때 Newline도 같이 지워진다.
+												; nil이면 라인 맨처음에서 C-k 명령으로 라인을 모두 지울때 Newline은 지워지지 않는다.(기본 행동)
+(setq sentence-end-double-space nil)			; nil이 아니면 마침표 뒤에 빈칸 하나가 오는 경우를 문자의 끝으로 취급하지
+												; 않는다
+
+(setq next-line-add-newlines nil)				; 문서의 가장 끝에서 down 키를 눌러도 newline삽입 방지
+(add-hook 'write-file-hooks 'time-stamp)		; time-stamp hook
+(setq tool-bar-mode nil)						; 툴바를 없앤다.
+(mouse-wheel-mode 1)							; 휠마우스
+(auto-compression-mode 1)						; 자동으로 압축을 풀어서 읽음
+(setq c-echo-syntactic-information-p t)			; Tab으로 들여쓰기 명령을 할 때마다 문법 규칙에 대해서 알기위해
+;현재 언어 설정에 맞추어 ASCII가 아닌 문자는 적절한 멀티바이트문자로 표시한다. 결과적으로 현재 폰트집합에 따라서 표시한다
+(setq unibyte-display-via-language-environment t) 
+;;(setq Man-notify-method 'pushy)				;man 페이지 표시시 전체장으로 표시
+;;(setq mark-ring-max 16)						; mark ring 이 기억하는 최대 마크의 갯수
+;;(setq kill-ring-max 60)						; 저장되는 삭데된 텍스트의 최대 갯수
+(setq Info-fontify-maximum-menu-size 131072)
+(setq Info-enable-edit t)
+(setq ange-ftp-process-verbose nil)
+(setq diff-switches "-u")
+(setq disabled-command-hook nil)
+(setq enable-local-eval t)
+(setq enable-recursive-minibuffers t)
+(setq kill-read-only-ok t)
+(setq gc-cons-threshold 1000000)
+(setq max-specpdl-size 3000)
+(setq max-lisp-eval-depth 3000)
+(put 'if lisp-indent-function 0)
+(setq lisp-indent-function 'common-lisp-indent-function)
+(setq comment-multi-line t)
+(setq dabbrev-upcase-means-case-search t)
+(setq url-be-asynchronous nil)
+(setq browse-url-new-window-p t)
+(setq pc-bindings-mode t)
+(setq confirm-kill-emacs)						; 이맥스 종료시 물어봄
+(setq inhibit-startup-message nil)				; nil 이 아니면 emacs 시작시 메시지를 표시하지 않음
+
+;;end my own setting
+;;; .emacs.el ends here.
+
+;; (custom-set-variables
+;;   ;; custom-set-variables was added by Custom -- don't edit or cut/paste it!
+;;   ;; Your init file should contain only one such instance.
+;;  '(auto-compression-mode t nil (jka-compr))
+;;  '(case-fold-search t)
+;;  '(current-language-environment "Korean")
+;;  ;'(default-input-method "korean-hangul3f")
+;;  '(default-input-method "korean-hangul3")
+;;  '(default-korean-keyboard "3f" t)
+;;  '(global-font-lock-mode t nil (font-lock))
+;;  '(show-paren-mode t nil (paren))
+;;  '(transient-mark-mode t))
+;; (custom-set-variables
+;;   ;; custom-set-variables was added by Custom.
+;;   ;; If you edit it by hand, you could mess it up, so be careful.
+;;   ;; Your init file should contain only one such instance.
+;;   ;; If there is more than one, they won't work right.
+;;  '(auto-compression-mode t nil (jka-compr))
+;;  '(case-fold-search t)
+;;  '(column-number-mode t)
+;;  '(cua-mode nil nil (cua-base))
+;;  '(current-language-environment "Korean")
+;;  '(default-input-method "korean-hangul3")
+;;  '(default-korean-keyboard "3" t)
+;;  '(display-battery-mode nil)
+;;  '(display-time-mode t nil (time))
+;;  '(global-font-lock-mode t nil (font-lock))
+;;  '(highlight-changes-colors (quote ("yellow" "magenta" "grey" "maroon" "firebrick" "green" "DarkOrchid")))
+;;  '(highlight-changes-face-list (quote (highlight-changes-1 highlight-changes-2)))
+;;  '(ido-mode (quote both) nil (ido)) ;; Turn on both buffer and file
+;;  '(show-paren-mode t nil (paren))
+;;  '(speedbar-show-unknown-files t)
+;;  '(transient-mark-mode t))
+
+;; Python 모드 
+(setq auto-mode-alist 
+	  (cons '("\\.py$" . python-mode) auto-mode-alist)) 
+(setq interpreter-mode-alist 
+	  (cons '("python" . python-mode) 
+			interpreter-mode-alist)) 
+(autoload 'python-mode "python-mode" "Python editing mode." t) 
+;; (custom-set-faces
+;;   ;; custom-set-faces was added by Custom.
+;;   ;; If you edit it by hand, you could mess it up, so be careful.
+;;   ;; Your init file should contain only one such instance.
+;;   ;; If there is more than one, they won't work right.
+;;  '(mmm-cleanup-submode-face ((t (:background "Black"))))
+;;  '(mmm-declaration-submode-face ((t (:background "Dark Red"))))
+;;  '(mmm-default-submode-face ((t (:background "Dark Green"))))
+;;  '(mmm-init-submode-face ((t (:background "Dark Blue"))))
+;;  '(mmm-output-submode-face ((t (:background "Dark Green"))))
+;;  '(mmm-special-submode-face ((t (:background "Dark Green")))))
+
+(setq locale-coding-system 'utf-8)
+(set-terminal-coding-system 'utf-8)
+;; (set-keyboard-coding-system 'utf-8)
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+; (utf-translate-cjk-mode 1)
+
+(custom-set-faces
+  ;; custom-set-faces was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ )
+
+
+;; function to reload .emacs 2008.01.24
+;; 출처 : http://hermian.tistory.com/195
+(defun reload-dotemacs ()
+  "Reload .emacs"
+  (interactive)
+  (load-file "~/.emacs.el"))
+
+;; tool-bar mode
+;; 출처 : http://hermian.tistory.com/195
+(require 'tool-bar+)
+(tool-bar-pop-up-mode)
+;; (tabbar-mode)
+;; menu-bar mode
+;; 출처 : http://hermian.tistory.com/195
+(eval-after-load "menu-bar" '(require 'menu-bar+))
+;; crosshair mode
+;; 별로다. `col-highlight', `hl-line', `hl-line+', `vline' 를 요구한다.
+;;(require 'crosshairs)
+
+
+;; set input method toggle key to 'Shift-Space'
+(global-set-key [?\S- ] 'toggle-input-method)
+
+;; F5 is reload a file
+(global-set-key [f5] 'revert-buffer)
+
+
+;; (set-face-font 'default "-*-NanumGothicCoding-*-*-*-*-14-*-*-*-*-*-*-*")
+
+;; (set-fontset-font "fontset-default" 'hangul '("NanumGothicCoding" . "unicode-bmp"))
+;; (set-fontset-font "fontset-default" 'kana '("NanumGothicCoding" . "unicode-bmp"))
+;; (set-fontset-font "fontset-default" 'han '("NanumGothicCoding" . "unicode-bmp"))
+;; (set-fontset-font "fontset-default" 'cjk-misc '("NanumGothicCoding" . "unicode-bmp"))
+
+;; ================================================================================
+;; 폰트 설정
+;; ================================================================================
+(defun xftp (&optional frame)
+  "Return t if FRAME support XFT font backend."
+  (let ((xft-supported))
+	(mapc (lambda (x) (if (eq x 'xft) (setq xft-supported t)))
+		  (frame-parameter frame 'font-backend))
+	xft-supported))
+
+
+(when (xftp)
+  (let ((fontset "fontset-default"))
+	(set-fontset-font fontset 'latin
+					  '("Terminus" . "unicode-bmp"))
+	(set-fontset-font fontset 'hangul
+					  '("Naver Dictionary" . "unicode-bmp"))
+	(set-fontset-font fontset 'cjk-misc
+					  '("Naver Dictionary" . "unicode-bmp"))
+	(set-face-attribute 'default nil
+						:font fontset
+						:height 90)))
+
+(defun iswitchb-local-keys ()
+  (mapc (lambda (K) 
+	      (let* ((key (car K)) (fun (cdr K)))
+			(define-key iswitchb-mode-map (edmacro-parse-keys key) fun)))
+	    '(("<right>" . iswitchb-next-match)
+	      ("<left>"  . iswitchb-prev-match)
+	      ("<up>"    . ignore             )
+	      ("<down>"  . ignore             ))))
+(add-hook 'iswitchb-define-mode-map-hook 'iswitchb-local-keys)
