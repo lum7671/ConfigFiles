@@ -1,0 +1,6 @@
+--style=java                # http://astyle.sourceforge.net/astyle.html#_style=java
+--indent=spaces=2           # Tab이 아닌 space로 2칸 사용.
+--indent-classes            # http://astyle.sourceforge.net/astyle.html#_indent-classes
+--indent-switches			# http://astyle.sourceforge.net/astyle.html#_indent-switches
+--delete-empty-lines		# http://astyle.sourceforge.net/astyle.html#_delete-empty-lines
+--keep-one-line-statements	# if 한줄짜리, http://astyle.sourceforge.net/astyle.html#_keep-one-line-statements

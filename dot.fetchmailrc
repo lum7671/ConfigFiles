@@ -1,0 +1,16 @@
+#### .fetchmailrc
+
+set daemon 600;
+set logfile /home/x/log/fetchmail.log;
+set postmaster "dh.jang@gmail.com";
+
+poll "pop3.skcomms.co.kr" 
+	 proto pop3 
+	 user "ring0320" pass "jang01" 
+	 fetchall no keep no rewrite
+#	 mda "/usr/bin/procmail -f %F -d %T" 
+	 smtpname "dh.jang@gmail.com";
+
+# poll "imap.gmail.com" proto imap port 993
+#    user "user@gmail.com" password "pass"
+#    ssl
